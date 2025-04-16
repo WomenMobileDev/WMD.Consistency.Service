@@ -1,0 +1,27 @@
+{
+    "name": "wmd-backend",
+    "version": "1.0.0",
+    "description": "backend-api",
+    "scripts": {
+        "dev": "ts-node-dev server.ts"
+    },
+    "repository": "https://github.com/WomenMobileDev/WMD.Consistency.Service.git",
+    "author": "WMD Team",
+    "license": "MIT",
+    "devDependencies": {
+        "@types/node": "^22.13.9",
+        "ts-node": "^10.9.2",
+        "ts-node-dev": "^2.0.0",
+        "typescript": "^5.8.2"
+    },
+    "dependencies": {
+        "config": "^3.3.12",
+        "express": "^4.21.2",
+        "express-boom": "^3.0.0",
+        "morgan": "^1.10.0",
+        "mysql2": "^3.14.0",
+        "passport": "^0.7.0",
+        "passport-google-oauth20": "^2.0.0",
+        "winston": "^3.17.0"
+    }
+}
