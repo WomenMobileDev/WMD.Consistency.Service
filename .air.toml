@@ -7,7 +7,7 @@ tmp_dir = "tmp" # Directory for temporary files
 [build]
   args_bin = []
   bin = "./tmp/app"
-  cmd = "go build -o ./tmp/app ./cmd/main.go"
+  cmd = "go build -o ./tmp/app ./cmd/server/main.go"
   delay = 1000
   exclude_dir = ["assets", "tmp", "vendor", ".git", "node_modules"]
   exclude_file = []

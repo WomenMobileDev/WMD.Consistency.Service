@@ -17,6 +17,7 @@ type Config struct {
 	Database DatabaseConfig
 
 	JWT JWTConfig
+	Auth AuthConfig
 
 	API APIConfig
 
@@ -45,6 +46,13 @@ type DatabaseConfig struct {
 type JWTConfig struct {
 	Secret string
 	Expiry time.Duration
+}
+
+type AuthConfig struct {
+	JWTSecret            string
+	JWTExpiryHours      int
+	PasswordResetExpiry time.Duration
+	TokenIssuer         string
 }
 type APIConfig struct {
 	Timeout   time.Duration
@@ -81,6 +89,12 @@ func Load() *Config {
 		JWT: JWTConfig{
 			Secret: getEnv("JWT_SECRET", "development_secret"),
 			Expiry: getDurationEnv("JWT_EXPIRY", 24*time.Hour),
+		},
+		Auth: AuthConfig{
+			JWTSecret:            getEnv("AUTH_JWT_SECRET", "habit_tracking_secret_key"),
+			JWTExpiryHours:      getIntEnv("AUTH_JWT_EXPIRY_HOURS", 72),
+			PasswordResetExpiry: getDurationEnv("AUTH_PASSWORD_RESET_EXPIRY", 24*time.Hour),
+			TokenIssuer:         getEnv("AUTH_TOKEN_ISSUER", "habit-tracking-app"),
 		},
 		API: APIConfig{
 			Timeout:   getDurationEnv("API_TIMEOUT", 30*time.Second),

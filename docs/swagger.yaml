@@ -1,0 +1,964 @@
+openapi: 3.0.0
+info:
+  title: Habit Tracking API
+  description: A RESTful API for tracking habits, streaks, and achievements
+  version: 1.0.0
+  contact:
+    name: WomenMobileDev
+    url: https://github.com/WomenMobileDev/WMD.Consistency.Service
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local development server
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  
+  schemas:
+    StandardResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          description: Indicates if the request was successful
+        message:
+          type: string
+          description: A human-readable message describing the result
+      required:
+        - success
+        - message
+        
+    SuccessResponse:
+      allOf:
+        - $ref: '#/components/schemas/StandardResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              description: The response data
+              
+    ErrorResponse:
+      allOf:
+        - $ref: '#/components/schemas/StandardResponse'
+        - type: object
+          properties:
+            error:
+              type: object
+              description: Error details
+              
+    ValidationError:
+      type: object
+      properties:
+        field:
+          type: string
+          description: The field that failed validation
+        issue:
+          type: string
+          description: Description of the validation issue
+      required:
+        - field
+        - issue
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+      required:
+        - error
+
+    RegisterRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: User's full name
+        email:
+          type: string
+          format: email
+          description: User's email address
+        password:
+          type: string
+          format: password
+          description: User's password (min 8 characters)
+      required:
+        - name
+        - email
+        - password
+
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          description: User's email address
+        password:
+          type: string
+          format: password
+          description: User's password
+      required:
+        - email
+        - password
+
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: JWT token for authentication
+        user:
+          $ref: '#/components/schemas/UserResponse'
+      required:
+        - token
+        - user
+
+    UserResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: User ID
+        name:
+          type: string
+          description: User's full name
+        email:
+          type: string
+          format: email
+          description: User's email address
+        created_at:
+          type: string
+          format: date-time
+          description: User creation timestamp
+        updated_at:
+          type: string
+          format: date-time
+          description: User last update timestamp
+      required:
+        - id
+        - name
+        - email
+        - created_at
+        - updated_at
+
+    CreateHabitRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Habit name
+        description:
+          type: string
+          description: Habit description
+        color:
+          type: string
+          description: Hex color code (e.g., "#4287f5")
+        icon:
+          type: string
+          description: Icon identifier
+      required:
+        - name
+
+    UpdateHabitRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Habit name
+        description:
+          type: string
+          description: Habit description
+        color:
+          type: string
+          description: Hex color code (e.g., "#4287f5")
+        icon:
+          type: string
+          description: Icon identifier
+        is_active:
+          type: boolean
+          description: Whether the habit is active
+      required:
+        - name
+
+    HabitResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Habit ID
+        user_id:
+          type: integer
+          description: User ID
+        name:
+          type: string
+          description: Habit name
+        description:
+          type: string
+          description: Habit description
+        color:
+          type: string
+          description: Hex color code
+        icon:
+          type: string
+          description: Icon identifier
+        is_active:
+          type: boolean
+          description: Whether the habit is active
+        created_at:
+          type: string
+          format: date-time
+          description: Habit creation timestamp
+        updated_at:
+          type: string
+          format: date-time
+          description: Habit last update timestamp
+        current_streak:
+          $ref: '#/components/schemas/HabitStreakResponse'
+      required:
+        - id
+        - user_id
+        - name
+        - is_active
+        - created_at
+        - updated_at
+
+    CreateStreakRequest:
+      type: object
+      properties:
+        target_days:
+          type: integer
+          description: Target number of days for the streak
+          minimum: 1
+      required:
+        - target_days
+
+    HabitStreakResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Streak ID
+        habit_id:
+          type: integer
+          description: Habit ID
+        target_days:
+          type: integer
+          description: Target number of days for the streak
+        current_streak:
+          type: integer
+          description: Current streak count
+        max_streak_achieved:
+          type: integer
+          description: Maximum streak achieved
+        start_date:
+          type: string
+          format: date-time
+          description: Streak start date
+        last_check_in_date:
+          type: string
+          format: date-time
+          description: Last check-in date
+        completed_at:
+          type: string
+          format: date-time
+          description: Completion date (if completed)
+        failed_at:
+          type: string
+          format: date-time
+          description: Failure date (if failed)
+        status:
+          type: string
+          enum: [active, completed, failed]
+          description: Streak status
+        created_at:
+          type: string
+          format: date-time
+          description: Streak creation timestamp
+        updated_at:
+          type: string
+          format: date-time
+          description: Streak last update timestamp
+        check_ins:
+          type: array
+          items:
+            $ref: '#/components/schemas/HabitCheckInResponse'
+      required:
+        - id
+        - habit_id
+        - target_days
+        - current_streak
+        - start_date
+        - status
+        - created_at
+        - updated_at
+
+    CheckInRequest:
+      type: object
+      properties:
+        notes:
+          type: string
+          description: Notes for the check-in
+
+    HabitCheckInResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Check-in ID
+        streak_id:
+          type: integer
+          description: Streak ID
+        check_in_date:
+          type: string
+          format: date-time
+          description: Check-in date
+        notes:
+          type: string
+          description: Notes for the check-in
+        created_at:
+          type: string
+          format: date-time
+          description: Check-in creation timestamp
+        updated_at:
+          type: string
+          format: date-time
+          description: Check-in last update timestamp
+      required:
+        - id
+        - streak_id
+        - check_in_date
+        - created_at
+        - updated_at
+
+    AchievementResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Achievement ID
+        user_id:
+          type: integer
+          description: User ID
+        habit_id:
+          type: integer
+          description: Habit ID
+        habit_name:
+          type: string
+          description: Habit name
+        achievement_type:
+          type: string
+          enum: [streak_milestone, streak_completed]
+          description: Achievement type
+        target_days:
+          type: integer
+          description: Target days for the achievement
+        achieved_at:
+          type: string
+          format: date-time
+          description: Achievement date
+        metadata:
+          type: object
+          description: Additional metadata for the achievement
+        created_at:
+          type: string
+          format: date-time
+          description: Achievement creation timestamp
+        updated_at:
+          type: string
+          format: date-time
+          description: Achievement last update timestamp
+      required:
+        - id
+        - user_id
+        - habit_id
+        - achievement_type
+        - achieved_at
+        - created_at
+        - updated_at
+
+paths:
+  /auth/register:
+    post:
+      summary: Register a new user
+      description: Creates a new user account
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '200':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Email already registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/login:
+    post:
+      summary: Login
+      description: Authenticates a user and returns a JWT token
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /profile:
+    get:
+      summary: Get user profile
+      description: Returns the current user's profile
+      tags:
+        - User
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      summary: Update user profile
+      description: Updates the current user's profile
+      tags:
+        - User
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: User's full name
+              required:
+                - name
+      responses:
+        '200':
+          description: User profile updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /habits:
+    get:
+      summary: List habits
+      description: Returns all habits for the current user
+      tags:
+        - Habits
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of habits
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HabitResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      summary: Create habit
+      description: Creates a new habit
+      tags:
+        - Habits
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateHabitRequest'
+      responses:
+        '200':
+          description: Habit created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HabitResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /habits/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+        description: Habit ID
+    get:
+      summary: Get habit
+      description: Returns a specific habit
+      tags:
+        - Habits
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Habit details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HabitResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Habit not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      summary: Update habit
+      description: Updates a habit
+      tags:
+        - Habits
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateHabitRequest'
+      responses:
+        '200':
+          description: Habit updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HabitResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Habit not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      summary: Delete habit
+      description: Deletes a habit
+      tags:
+        - Habits
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Habit deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Habit deleted successfully
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Habit not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /habits/{habitId}/streaks:
+    parameters:
+      - name: habitId
+        in: path
+        required: true
+        schema:
+          type: integer
+        description: Habit ID
+    get:
+      summary: List streaks
+      description: Returns all streaks for a habit
+      tags:
+        - Streaks
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of streaks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HabitStreakResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Habit not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      summary: Create streak
+      description: Creates a new streak for a habit
+      tags:
+        - Streaks
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateStreakRequest'
+      responses:
+        '200':
+          description: Streak created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HabitStreakResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Habit not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Active streak already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /habits/{habitId}/streaks/current:
+    parameters:
+      - name: habitId
+        in: path
+        required: true
+        schema:
+          type: integer
+        description: Habit ID
+    get:
+      summary: Get current streak
+      description: Returns the current active streak for a habit
+      tags:
+        - Streaks
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current streak
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HabitStreakResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Habit or streak not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /habits/{habitId}/check-ins:
+    parameters:
+      - name: habitId
+        in: path
+        required: true
+        schema:
+          type: integer
+        description: Habit ID
+    get:
+      summary: List check-ins
+      description: Returns all check-ins for a habit
+      tags:
+        - Check-ins
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of check-ins
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HabitCheckInResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Habit not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      summary: Check in
+      description: Checks in for a habit for the current day
+      tags:
+        - Check-ins
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckInRequest'
+      responses:
+        '200':
+          description: Check-in created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HabitCheckInResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Habit or streak not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Already checked in today or streak broken
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /achievements:
+    get:
+      summary: List achievements
+      description: Returns all achievements for the current user
+      tags:
+        - Achievements
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of achievements
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AchievementResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /achievements/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+        description: Achievement ID
+    get:
+      summary: Get achievement
+      description: Returns a specific achievement
+      tags:
+        - Achievements
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Achievement details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AchievementResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Achievement not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /habits/{habitId}/achievements:
+    parameters:
+      - name: habitId
+        in: path
+        required: true
+        schema:
+          type: integer
+        description: Habit ID
+    get:
+      summary: List habit achievements
+      description: Returns all achievements for a habit
+      tags:
+        - Achievements
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of achievements
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AchievementResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Habit not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
