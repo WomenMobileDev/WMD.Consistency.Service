@@ -1,0 +1,77 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Air Configuration Schema",
+  "description": "Schema for Air live reload configuration",
+  "type": "object",
+  "properties": {
+    "root": { "type": "string" },
+    "tmp_dir": { "type": "string" },
+    "build": {
+      "type": "object",
+      "properties": {
+        "args_bin": { "type": "array", "items": { "type": "string" } },
+        "bin": { "type": "string" },
+        "cmd": { "type": "string" },
+        "delay": { "type": "integer" },
+        "exclude_dir": { "type": "array", "items": { "type": "string" } },
+        "exclude_file": { "type": "array", "items": { "type": "string" } },
+        "exclude_regex": { "type": "array", "items": { "type": "string" } },
+        "exclude_unchanged": { "type": "boolean" },
+        "follow_symlink": { "type": "boolean" },
+        "full_bin": { "type": "string" },
+        "include_dir": { "type": "array", "items": { "type": "string" } },
+        "include_ext": { "type": "array", "items": { "type": "string" } },
+        "include_file": { "type": "array", "items": { "type": "string" } },
+        "kill_delay": { "type": "string" },
+        "log": { "type": "string" },
+        "poll": { "type": "boolean" },
+        "poll_interval": { "type": "integer" },
+        "post_cmd": { "type": "array", "items": { "type": "string" } },
+        "pre_cmd": { "type": "array", "items": { "type": "string" } },
+        "rerun": { "type": "boolean" },
+        "rerun_delay": { "type": "integer" },
+        "send_interrupt": { "type": "boolean" },
+        "stop_on_error": { "type": "boolean" }
+      }
+    },
+    "color": {
+      "type": "object",
+      "properties": {
+        "app": { "type": "string" },
+        "build": { "type": "string" },
+        "main": { "type": "string" },
+        "runner": { "type": "string" },
+        "watcher": { "type": "string" }
+      }
+    },
+    "log": {
+      "type": "object",
+      "properties": {
+        "main_only": { "type": "boolean" },
+        "silent": { "type": "boolean" },
+        "time": { "type": "boolean" }
+      }
+    },
+    "misc": {
+      "type": "object",
+      "properties": {
+        "clean_on_exit": { "type": "boolean" }
+      }
+    },
+    "proxy": {
+      "type": "object",
+      "properties": {
+        "app_port": { "type": "integer" },
+        "enabled": { "type": "boolean" },
+        "proxy_port": { "type": "integer" }
+      }
+    },
+    "screen": {
+      "type": "object",
+      "properties": {
+        "clear_on_rebuild": { "type": "boolean" },
+        "keep_scroll": { "type": "boolean" }
+      }
+    }
+  }
+}
