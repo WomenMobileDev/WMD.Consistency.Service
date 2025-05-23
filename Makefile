@@ -1,4 +1,4 @@
-.PHONY: dev dev-docker test build clean
+.PHONY: dev dev-docker test build clean docker-prod docker-stop help
 
 all: build
 
@@ -8,7 +8,7 @@ dev:
 
 dev-docker:
 	@echo "Starting development environment with Docker and live reloading..."
-	@docker-compose -f docker-compose.dev.yml up --build
+	@docker compose -f docker-compose.dev.yml up --build
 test:
 	@echo "Running tests..."
 	@go test -v ./...
@@ -20,17 +20,14 @@ clean:
 	@echo "Cleaning build artifacts..."
 	@rm -rf bin tmp
 
-# Run production Docker environment
 docker-prod:
 	@echo "Starting production environment with Docker..."
-	@docker-compose up --build -d
+	@docker compose up --build -d
 
-# Stop Docker containers
 docker-stop:
 	@echo "Stopping Docker containers..."
-	@docker-compose down
+	@docker compose down
 
-# Show help
 help:
 	@echo "Available commands:"
 	@echo "  make dev         - Run development server with Air (local)"
