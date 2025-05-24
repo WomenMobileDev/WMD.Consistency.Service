@@ -1,0 +1,536 @@
+{
+  "info": {
+    "name": "Habit Tracking API",
+    "description": "A RESTful API for tracking habits, streaks, and achievements",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "12345678"
+  },
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"John Doe\",\n    \"email\": \"john@example.com\",\n    \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
+            },
+            "description": "Register a new user"
+          },
+          "response": []
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"john@example.com\",\n    \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Login with email and password"
+          },
+          "response": []
+        }
+      ],
+      "description": "Authentication endpoints for user registration and login"
+    },
+    {
+      "name": "User",
+      "item": [
+        {
+          "name": "Get Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/profile",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "profile"
+              ]
+            },
+            "description": "Get the current user's profile"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"John Smith\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/profile",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "profile"
+              ]
+            },
+            "description": "Update the current user's profile"
+          },
+          "response": []
+        }
+      ],
+      "description": "User profile endpoints"
+    },
+    {
+      "name": "Habits",
+      "item": [
+        {
+          "name": "List Habits",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/habits",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "habits"
+              ]
+            },
+            "description": "List all habits for the current user"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Habit",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"Morning Meditation\",\n    \"description\": \"Meditate for 10 minutes every morning\",\n    \"color\": \"#4287f5\",\n    \"icon\": \"meditation\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/habits",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "habits"
+              ]
+            },
+            "description": "Create a new habit"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Habit",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/habits/1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "habits",
+                "1"
+              ]
+            },
+            "description": "Get a specific habit"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Habit",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"Morning Meditation\",\n    \"description\": \"Meditate for 15 minutes every morning\",\n    \"color\": \"#4287f5\",\n    \"icon\": \"meditation\",\n    \"is_active\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/habits/1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "habits",
+                "1"
+              ]
+            },
+            "description": "Update a habit"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Habit",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/habits/1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "habits",
+                "1"
+              ]
+            },
+            "description": "Delete a habit"
+          },
+          "response": []
+        }
+      ],
+      "description": "Habit management endpoints"
+    },
+    {
+      "name": "Streaks",
+      "item": [
+        {
+          "name": "List Streaks",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/habits/1/streaks",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "habits",
+                "1",
+                "streaks"
+              ]
+            },
+            "description": "List all streaks for a habit"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Streak",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"target_days\": 7\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/habits/1/streaks",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "habits",
+                "1",
+                "streaks"
+              ]
+            },
+            "description": "Create a new streak for a habit"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Current Streak",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/habits/1/streaks/current",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "habits",
+                "1",
+                "streaks",
+                "current"
+              ]
+            },
+            "description": "Get the current active streak for a habit"
+          },
+          "response": []
+        }
+      ],
+      "description": "Streak management endpoints"
+    },
+    {
+      "name": "Check-ins",
+      "item": [
+        {
+          "name": "List Check-ins",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/habits/1/check-ins",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "habits",
+                "1",
+                "check-ins"
+              ]
+            },
+            "description": "List all check-ins for a habit"
+          },
+          "response": []
+        },
+        {
+          "name": "Check In",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"notes\": \"Completed 10 minutes of meditation today\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/habits/1/check-ins",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "habits",
+                "1",
+                "check-ins"
+              ]
+            },
+            "description": "Check in for a habit for the current day"
+          },
+          "response": []
+        }
+      ],
+      "description": "Check-in management endpoints"
+    },
+    {
+      "name": "Achievements",
+      "item": [
+        {
+          "name": "List Achievements",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/achievements",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "achievements"
+              ]
+            },
+            "description": "List all achievements for the current user"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Achievement",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/achievements/1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "achievements",
+                "1"
+              ]
+            },
+            "description": "Get a specific achievement"
+          },
+          "response": []
+        },
+        {
+          "name": "List Habit Achievements",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/habits/1/achievements",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "habits",
+                "1",
+                "achievements"
+              ]
+            },
+            "description": "List all achievements for a habit"
+          },
+          "response": []
+        }
+      ],
+      "description": "Achievement management endpoints"
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8080/api/v1",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}

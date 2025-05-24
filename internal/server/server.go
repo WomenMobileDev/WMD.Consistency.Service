@@ -6,7 +6,7 @@ import (
 
 	"github.com/WomenMobileDev/WMD.Consistency.Service/internal/config"
 	"github.com/WomenMobileDev/WMD.Consistency.Service/internal/database"
-	"github.com/WomenMobileDev/WMD.Consistency.Service/internal/handlers"
+	"github.com/WomenMobileDev/WMD.Consistency.Service/internal/router"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 )
@@ -19,10 +19,16 @@ type Server struct {
 }
 
 func NewServer(cfg *config.Config) *Server {
-	// Initialize database connection
 	db, err := database.NewDatabase(cfg)
 	if err != nil {
 		log.Warn().Err(err).Msg("Failed to connect to database, continuing without database connection")
+	} else {
+		// Run database migrations
+		if err := db.RunMigrations(); err != nil {
+			log.Error().Err(err).Msg("Failed to run database migrations")
+		} else {
+			log.Info().Msg("Database migrations completed successfully")
+		}
 	}
 	if cfg.Server.Env == "production" {
 		gin.SetMode(gin.ReleaseMode)
@@ -32,47 +38,29 @@ func NewServer(cfg *config.Config) *Server {
 		gin.SetMode(gin.DebugMode)
 	}
 
-	router := gin.New()
-	router.Use(gin.Recovery())
+	// Use the router from the router package
+	r := router.SetupRouter(db)
 
 	srv := &Server{
-		router: router,
+		router: r,
 		config: cfg,
 		db:     db,
 		http: &http.Server{
 			Addr:    ":" + cfg.Server.Port,
-			Handler: router,
+			Handler: r,
 		},
 	}
-
-	srv.setupRoutes()
 
 	return srv
 }
 
-func (s *Server) setupRoutes() {
-	// Root level routes
-	s.router.GET("/health", handlers.HealthCheck)
-	s.router.GET("/test-reload", handlers.TestReload)
-	s.router.GET("/db-health", handlers.DBHealthCheck(s.db))
 
-	// API v1 group
-	v1 := s.router.Group("/api/v1")
-	{
-		v1.GET("/health", handlers.HealthCheck)
-		v1.GET("/test-reload", handlers.TestReload)
-		v1.GET("/db-health", handlers.DBHealthCheck(s.db))
-	}
-
-	log.Info().Msg("Routes configured successfully")
-}
 
 func (s *Server) ListenAndServe() error {
 	return s.http.ListenAndServe()
 }
 
 func (s *Server) Shutdown(ctx context.Context) error {
-	// Close database connection if it exists
 	if s.db != nil {
 		s.db.Close()
 	}

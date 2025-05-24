@@ -1,10 +1,18 @@
-.PHONY: dev dev-docker test build clean docker-prod docker-stop help
+.PHONY: dev dev-docker test build clean docker-prod docker-stop run seed help
 
 all: build
 
 dev: 
 	@echo "Starting development server with live reloading..."
-	@air -c .air.toml
+	@air -c .air.toml -d
+
+run:
+	@echo "Starting server directly..."
+	@go run -v cmd/server/main.go
+
+run-debug:
+	@echo "Starting server with debug output..."
+	@LOG_LEVEL=debug go run cmd/server/main.go
 
 dev-docker:
 	@echo "Starting development environment with Docker and live reloading..."
@@ -28,6 +36,14 @@ docker-stop:
 	@echo "Stopping Docker containers..."
 	@docker compose down
 
+run:
+	@echo "Running server..."
+	@go run cmd/server/main.go
+
+seed:
+	@echo "Seeding database..."
+	@go run cmd/seeder/main.go
+
 help:
 	@echo "Available commands:"
 	@echo "  make dev         - Run development server with Air (local)"
@@ -37,3 +53,5 @@ help:
 	@echo "  make clean       - Clean build artifacts"
 	@echo "  make docker-prod - Run production Docker environment"
 	@echo "  make docker-stop - Stop Docker containers"
+	@echo "  make run         - Run the server"
+	@echo "  make seed        - Seed the database"
