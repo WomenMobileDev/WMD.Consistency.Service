@@ -1,3 +1,4 @@
+// Package middleware provides reusable response and error-handling middleware for Gin.
 package middleware
 
 import (
@@ -15,6 +16,17 @@ func ResponseFormatter() gin.HandlerFunc {
 
 		// Skip if response is already committed
 		if c.Writer.Written() {
+			return
+		}
+
+		if len(c.Errors) > 0 {
+			err := c.Errors.Last().Err
+			switch e := err.(type) {
+			case *models.AppError:
+				c.JSON(http.StatusBadRequest, models.NewErrorResponse(e.Code, e.Message, e.Details))
+			default:
+				c.JSON(http.StatusInternalServerError, models.NewErrorResponse("INTERNAL_ERROR", "Internal server error", e.Error()))
+			}
 			return
 		}
 
@@ -51,19 +63,26 @@ func ResponseFormatter() gin.HandlerFunc {
 
 			c.JSON(statusCode, models.NewSuccessResponse(message, data))
 		} else {
-			// Error response
-			message := "Request failed"
-			if statusCode == http.StatusBadRequest {
+			var code string
+			var message string
+			switch statusCode {
+			case http.StatusBadRequest:
+				code = "INVALID_REQUEST"
 				message = "Invalid request"
-			} else if statusCode == http.StatusUnauthorized {
+			case http.StatusUnauthorized:
+				code = "UNAUTHORIZED"
 				message = "Unauthorized"
-			} else if statusCode == http.StatusForbidden {
+			case http.StatusForbidden:
+				code = "FORBIDDEN"
 				message = "Forbidden"
-			} else if statusCode == http.StatusNotFound {
+			case http.StatusNotFound:
+				code = "NOT_FOUND"
 				message = "Resource not found"
-			} else if statusCode == http.StatusConflict {
+			case http.StatusConflict:
+				code = "CONFLICT"
 				message = "Resource conflict"
-			} else if statusCode >= 500 {
+			default:
+				code = "INTERNAL_ERROR"
 				message = "Server error"
 			}
 
@@ -74,7 +93,7 @@ func ResponseFormatter() gin.HandlerFunc {
 				errorObj = data
 			}
 
-			c.JSON(statusCode, models.NewErrorResponse(message, errorObj))
+			c.JSON(statusCode, models.NewErrorResponse(code, message, errorObj))
 		}
 	}
 }
@@ -87,13 +106,13 @@ func ErrorHandler() gin.HandlerFunc {
 		// Check if there were any errors
 		if len(c.Errors) > 0 {
 			err := c.Errors.Last().Err
-			
+
 			// Handle different types of errors
 			switch err := err.(type) {
 			case *gin.Error:
-				c.JSON(http.StatusBadRequest, models.NewErrorResponse("Validation failed", err.Error()))
+				c.JSON(http.StatusBadRequest, models.NewErrorResponse("VALIDATION_ERROR", "Validation failed", err.Error()))
 			default:
-				c.JSON(http.StatusInternalServerError, models.NewErrorResponse("Internal server error", err.Error()))
+				c.JSON(http.StatusInternalServerError, models.NewErrorResponse("INTERNAL_ERROR", "Internal server error", err.Error()))
 			}
 		}
 	}
@@ -107,13 +126,14 @@ func RespondWithSuccess(c *gin.Context, statusCode int, message string, data int
 }
 
 // RespondWithError sends a standardized error response
-func RespondWithError(c *gin.Context, statusCode int, message string, err interface{}) {
-	c.JSON(statusCode, models.NewErrorResponse(message, err))
+func RespondWithError(c *gin.Context, statusCode int, code, message string, details interface{}) {
+	c.JSON(statusCode, models.NewErrorResponse(code, message, details))
 }
 
 // RespondWithValidationError sends a standardized validation error response
 func RespondWithValidationError(c *gin.Context, field, issue string) {
 	c.JSON(http.StatusBadRequest, models.NewErrorResponse(
+		"VALIDATION_ERROR",
 		"Validation failed",
 		models.NewValidationError(field, issue),
 	))
@@ -136,30 +156,30 @@ func RespondWithNoContent(c *gin.Context) {
 
 // RespondWithBadRequest sends a standardized bad request response
 func RespondWithBadRequest(c *gin.Context, err interface{}) {
-	RespondWithError(c, http.StatusBadRequest, "Invalid request", err)
+	RespondWithError(c, http.StatusBadRequest, "INVALID_REQUEST", "Invalid request", err)
 }
 
 // RespondWithUnauthorized sends a standardized unauthorized response
 func RespondWithUnauthorized(c *gin.Context) {
-	RespondWithError(c, http.StatusUnauthorized, "Unauthorized", nil)
+	RespondWithError(c, http.StatusUnauthorized, "UNAUTHORIZED", "Unauthorized", nil)
 }
 
 // RespondWithForbidden sends a standardized forbidden response
 func RespondWithForbidden(c *gin.Context) {
-	RespondWithError(c, http.StatusForbidden, "Forbidden", nil)
+	RespondWithError(c, http.StatusForbidden, "FORBIDDEN", "Forbidden", nil)
 }
 
 // RespondWithNotFound sends a standardized not found response
 func RespondWithNotFound(c *gin.Context, resource string) {
-	RespondWithError(c, http.StatusNotFound, resource+" not found", nil)
+	RespondWithError(c, http.StatusNotFound, "NOT_FOUND", resource+" not found", nil)
 }
 
 // RespondWithConflict sends a standardized conflict response
 func RespondWithConflict(c *gin.Context, message string) {
-	RespondWithError(c, http.StatusConflict, message, nil)
+	RespondWithError(c, http.StatusConflict, "CONFLICT", message, nil)
 }
 
 // RespondWithInternalError sends a standardized internal server error response
 func RespondWithInternalError(c *gin.Context, err interface{}) {
-	RespondWithError(c, http.StatusInternalServerError, "Internal server error", err)
+	RespondWithError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Internal server error", err)
 }

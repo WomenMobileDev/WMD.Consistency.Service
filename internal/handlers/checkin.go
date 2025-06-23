@@ -1,9 +1,11 @@
 package handlers
 
 import (
+	"net/http"
 	"strconv"
 
 	"github.com/WomenMobileDev/WMD.Consistency.Service/internal/middleware"
+	"github.com/WomenMobileDev/WMD.Consistency.Service/internal/models"
 	"github.com/WomenMobileDev/WMD.Consistency.Service/internal/service"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
@@ -48,20 +50,11 @@ func (h *CheckInHandler) CheckIn() gin.HandlerFunc {
 		// Call the service to check in
 		checkIn, err := h.checkInService.CheckIn(c.Request.Context(), userID, uint(habitID), req)
 		if err != nil {
-			switch err.Error() {
-			case "habit not found":
-				middleware.RespondWithNotFound(c, "Habit")
-			case "no active streak found. Please start a new streak first":
-				middleware.RespondWithNotFound(c, "Active streak")
-			case "already checked in today":
-				middleware.RespondWithConflict(c, err.Error())
-			case "streak broken! You missed a day. Please start a new streak":
-				middleware.RespondWithBadRequest(c, err.Error())
-			case "forbidden":
-				middleware.RespondWithForbidden(c)
-			default:
+			if appErr, ok := err.(*models.AppError); ok {
+				middleware.RespondWithError(c, http.StatusBadRequest, appErr.Code, appErr.Message, appErr.Details)
+			} else {
 				log.Error().Err(err).Msg("Failed to check in")
-				middleware.RespondWithInternalError(c, "Failed to check in")
+				middleware.RespondWithInternalError(c, err.Error())
 			}
 			return
 		}

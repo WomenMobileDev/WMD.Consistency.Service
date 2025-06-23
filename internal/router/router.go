@@ -21,10 +21,10 @@ func SetupRouter(db *database.Database) *gin.Engine {
 	r.Use(cors.Default())
 	r.Use(middleware.ErrorHandler())
 	r.Use(middleware.ResponseFormatter())
-	
+
 	// Add NoRoute handler for proper 404 responses
 	r.NoRoute(func(c *gin.Context) {
-		middleware.RespondWithError(c, http.StatusNotFound, "The requested resource could not be found", gin.H{
+		middleware.RespondWithError(c, http.StatusNotFound, "NOT_FOUND", "The requested resource could not be found", gin.H{
 			"documentation": "/swagger",
 		})
 	})
@@ -62,10 +62,10 @@ func SetupRouter(db *database.Database) *gin.Engine {
 	// Root welcome page
 	r.GET("/", func(c *gin.Context) {
 		middleware.RespondWithOK(c, gin.H{
-			"name":        "Consistency API",
-			"description": "A RESTful API for tracking habits, streaks, and achievements",
-			"version":     "1.0.0",
-			"status":      "running",
+			"name":          "Consistency API",
+			"description":   "A RESTful API for tracking habits, streaks, and achievements",
+			"version":       "1.0.0",
+			"status":        "running",
 			"documentation": "/swagger",
 			"endpoints": map[string]string{
 				"health":    "/health",
