@@ -208,6 +208,10 @@ components:
         is_active:
           type: boolean
           description: Whether the habit is active
+        status:
+          type: string
+          enum: [active, inactive]
+          description: Habit streak status - 'active' if there's an active streak, 'inactive' if no active streak
         created_at:
           type: string
           format: date-time
@@ -223,6 +227,7 @@ components:
         - user_id
         - name
         - is_active
+        - status
         - created_at
         - updated_at
 

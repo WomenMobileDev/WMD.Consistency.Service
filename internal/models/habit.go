@@ -18,8 +18,7 @@ type Habit struct {
 	CreatedAt   time.Time      `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt   time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
 	DeletedAt   gorm.DeletedAt `json:"-" gorm:"index"`
-	
-	// Relationships
+
 	User    User          `json:"-" gorm:"foreignKey:UserID"`
 	Streaks []HabitStreak `json:"streaks,omitempty" gorm:"foreignKey:HabitID"`
 }
@@ -38,9 +37,10 @@ type HabitResponse struct {
 	Color       string    `json:"color"`
 	Icon        string    `json:"icon"`
 	IsActive    bool      `json:"is_active"`
+	Status      string    `json:"status"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
-	
+
 	// Optional related data
 	CurrentStreak *HabitStreakResponse `json:"current_streak,omitempty"`
 }
@@ -55,7 +55,26 @@ func (h *Habit) ToResponse() HabitResponse {
 		Color:       h.Color,
 		Icon:        h.Icon,
 		IsActive:    h.IsActive,
+		Status:      "inactive", // Default to inactive, will be updated by service
 		CreatedAt:   h.CreatedAt,
 		UpdatedAt:   h.UpdatedAt,
 	}
+}
+
+func (h *Habit) ToResponseWithStreak(currentStreak *HabitStreak) HabitResponse {
+	response := h.ToResponse()
+
+	if currentStreak != nil && currentStreak.Status == "active" && currentStreak.CurrentStreak > 0 {
+		response.Status = "active"
+		streakResponse := currentStreak.ToResponse()
+		response.CurrentStreak = &streakResponse
+	} else {
+		response.Status = "inactive"
+		if currentStreak != nil {
+			streakResponse := currentStreak.ToResponse()
+			response.CurrentStreak = &streakResponse
+		}
+	}
+
+	return response
 }

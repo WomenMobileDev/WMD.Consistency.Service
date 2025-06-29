@@ -87,17 +87,14 @@ func (h *HabitHandler) GetHabit() gin.HandlerFunc {
 	}
 }
 
-// ListHabits handles listing all habits for a user
 func (h *HabitHandler) ListHabits() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Get the user ID from the context
 		userID, err := middleware.GetUserID(c)
 		if err != nil {
 			middleware.RespondWithUnauthorized(c)
 			return
 		}
 
-		// Call the service to list the habits
 		habits, err := h.habitService.ListHabits(c.Request.Context(), userID)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to list habits")

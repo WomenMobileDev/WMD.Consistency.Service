@@ -1,4 +1,4 @@
-.PHONY: dev dev-docker test build clean docker-prod docker-stop run seed help
+.PHONY: dev dev-docker test build clean docker-prod docker-stop run-server run-debug seed help
 
 all: build
 
@@ -6,7 +6,7 @@ dev:
 	@echo "Starting development server with live reloading..."
 	@air -c .air.toml -d
 
-run:
+run-server:
 	@echo "Starting server directly..."
 	@go run -v cmd/server/main.go
 
@@ -16,29 +16,27 @@ run-debug:
 
 dev-docker:
 	@echo "Starting development environment with Docker and live reloading..."
-	@docker-compose -f docker-compose.dev.yml up --build
+	@docker compose -f docker-compose.dev.yml up --build
+
 test:
 	@echo "Running tests..."
 	@go test -v ./...
 
 build:
 	@echo "Building application..."
-	@go build -o bin/main ./cmd/main.go
+	@go build -o bin/main ./cmd/server/main.go
+
 clean:
 	@echo "Cleaning build artifacts..."
 	@rm -rf bin tmp
 
 docker-prod:
 	@echo "Starting production environment with Docker..."
-	@docker-compose up --build -d
+	@docker compose up --build -d
 
 docker-stop:
 	@echo "Stopping Docker containers..."
-	@docker-compose down
-
-run:
-	@echo "Running server..."
-	@go run cmd/server/main.go
+	@docker compose down
 
 seed:
 	@echo "Seeding database..."
@@ -53,5 +51,5 @@ help:
 	@echo "  make clean       - Clean build artifacts"
 	@echo "  make docker-prod - Run production Docker environment"
 	@echo "  make docker-stop - Stop Docker containers"
-	@echo "  make run         - Run the server"
+	@echo "  make run-server  - Run the server directly"
 	@echo "  make seed        - Seed the database"
