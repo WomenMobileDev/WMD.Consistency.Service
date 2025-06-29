@@ -59,7 +59,7 @@ func (h *AuthHandler) Login() gin.HandlerFunc {
 		response, err := h.authService.Login(c.Request.Context(), req)
 		if err != nil {
 			if err.Error() == "invalid email or password" {
-				middleware.RespondWithError(c, http.StatusUnauthorized, err.Error(), nil)
+				middleware.RespondWithError(c, http.StatusUnauthorized, "UNAUTHORIZED", err.Error(), nil)
 				return
 			}
 			log.Error().Err(err).Msg("Failed to login user")

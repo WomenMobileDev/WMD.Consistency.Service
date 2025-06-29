@@ -16,7 +16,7 @@ run-debug:
 
 dev-docker:
 	@echo "Starting development environment with Docker and live reloading..."
-	@docker compose -f docker-compose.dev.yml up --build
+	@docker-compose -f docker-compose.dev.yml up --build
 test:
 	@echo "Running tests..."
 	@go test -v ./...
@@ -30,11 +30,11 @@ clean:
 
 docker-prod:
 	@echo "Starting production environment with Docker..."
-	@docker compose up --build -d
+	@docker-compose up --build -d
 
 docker-stop:
 	@echo "Stopping Docker containers..."
-	@docker compose down
+	@docker-compose down
 
 run:
 	@echo "Running server..."

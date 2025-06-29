@@ -1,3 +1,4 @@
+// Package models contains all the shared types used for API input, output, and validation.
 package models
 
 import (

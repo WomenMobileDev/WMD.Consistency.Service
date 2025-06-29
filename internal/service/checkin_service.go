@@ -1,14 +1,15 @@
+// Package service contains the business logic for habit tracking, including check-in and streak management.
 package service
 
 import (
 	"context"
 	"errors"
+	"strconv"
 	"time"
 
 	"github.com/WomenMobileDev/WMD.Consistency.Service/internal/models"
 	"github.com/WomenMobileDev/WMD.Consistency.Service/internal/repository"
 	"gorm.io/datatypes"
-	"strconv"
 )
 
 // CheckInService handles check-in-related business logic
@@ -34,109 +35,100 @@ func NewCheckInService(
 	}
 }
 
-// CheckInRequest represents the request for checking in
 type CheckInRequest struct {
 	Notes string `json:"notes"`
 }
 
-// CheckIn checks in for a habit
 func (s *CheckInService) CheckIn(ctx context.Context, userID uint, habitID uint, req CheckInRequest) (*models.HabitCheckInResponse, error) {
-	// Verify the habit belongs to the user
 	habit, err := s.habitRepo.FindByID(ctx, habitID)
 	if err != nil {
 		return nil, err
 	}
 	if habit == nil || habit.UserID != userID {
-		return nil, errors.New("habit not found")
+		return nil, &models.AppError{
+			Code:    "habit_not_found",
+			Message: "Habit not found",
+		}
 	}
 
-	// Find the active streak for the habit
 	streak, err := s.streakRepo.FindActiveByHabitID(ctx, habitID)
 	if err != nil {
 		return nil, err
 	}
+
 	if streak == nil {
-		return nil, errors.New("no active streak found. Please start a new streak first")
+		return nil, &models.AppError{
+			Code:    "STREAK_NOT_FOUND",
+			Message: "No active streak found. Please start a new streak first",
+		}
 	}
 
-	// Get today's date in UTC
 	today := time.Now().UTC().Truncate(24 * time.Hour)
 	todayStr := today.Format("2006-01-02")
 
-	// Check if already checked in today
 	existingCheckIn, err := s.checkInRepo.FindByDate(ctx, streak.ID, todayStr)
 	if err != nil {
 		return nil, err
 	}
 	if existingCheckIn != nil {
-		return nil, errors.New("already checked in today")
+		return nil, &models.AppError{
+			Code:    "ALREADY_CHECKED_IN",
+			Message: "Already checked in today",
+		}
 	}
 
-	// Check if the last check-in was yesterday or if this is the first check-in
 	latestCheckIn, err := s.checkInRepo.FindLatestByStreakID(ctx, streak.ID)
 	if err != nil {
 		return nil, err
 	}
 
-	// If there's a last check-in, verify it was yesterday
 	if latestCheckIn != nil {
 		yesterday := today.AddDate(0, 0, -1)
 		yesterdayStr := yesterday.Format("2006-01-02")
 		latestDateStr := latestCheckIn.CheckInDate.Format("2006-01-02")
 
 		if latestDateStr != yesterdayStr {
-			// If the last check-in wasn't yesterday, the streak is broken
-			// Instead of updating the streak as failed, delete it
 			streakID := streak.ID
-			
-			// Delete all check-ins for this streak first (to maintain referential integrity)
+
 			checkIns, err := s.checkInRepo.FindByStreakID(ctx, streakID)
 			if err != nil {
 				return nil, err
 			}
-			
-			// Delete each check-in by its ID
+
 			for _, checkIn := range checkIns {
 				if err := s.checkInRepo.Delete(ctx, checkIn.ID); err != nil {
 					return nil, err
 				}
 			}
-			
-			// Now delete the streak itself by its ID
+
 			if err := s.streakRepo.Delete(ctx, streakID); err != nil {
 				return nil, err
 			}
 
-			return nil, errors.New("streak broken! You missed a day. The streak has been deleted. Please start a new streak")
+			return nil, &models.AppError{
+				Code:    "STREAK_BROKEN",
+				Message: "Streak broken! You missed a day. The streak has been deleted. Please start a new streak.",
+			}
 		}
 	}
 
-	// Create a new check-in
 	checkIn := models.HabitCheckIn{
 		StreakID:    streak.ID,
 		CheckInDate: today,
 		Notes:       req.Notes,
 	}
 
-	// Begin transaction
-	// In a real application, you would use a transaction here
-	// For simplicity, we'll just perform the operations sequentially
-
-	// Save the check-in
 	if err := s.checkInRepo.Create(ctx, &checkIn); err != nil {
 		return nil, err
 	}
 
-	// Update the streak
 	streak.CurrentStreak++
 	streak.LastCheckInDate = &today
 
-	// Check if the streak has reached its target
 	if streak.CurrentStreak >= streak.TargetDays {
 		streak.Status = "completed"
 		streak.CompletedAt = &today
 
-		// Create an achievement
 		achievement := models.Achievement{
 			UserID:          habit.UserID,
 			HabitID:         habit.ID,
@@ -150,17 +142,14 @@ func (s *CheckInService) CheckIn(ctx context.Context, userID uint, habitID uint,
 		}
 	}
 
-	// Update max streak if current streak is higher
 	if streak.CurrentStreak > streak.MaxStreakAchieved {
 		streak.MaxStreakAchieved = streak.CurrentStreak
 	}
 
-	// Save the streak
 	if err := s.streakRepo.Update(ctx, streak); err != nil {
 		return nil, err
 	}
 
-	// Return the check-in
 	response := checkIn.ToResponse()
 	return &response, nil
 }

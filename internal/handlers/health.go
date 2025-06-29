@@ -21,7 +21,7 @@ func HealthCheck(c *gin.Context) {
 func DBHealthCheck(db *database.Database) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if db == nil {
-			middleware.RespondWithError(c, http.StatusServiceUnavailable, "Database connection not initialized", nil)
+			middleware.RespondWithError(c, http.StatusServiceUnavailable, "DB_UNAVAILABLE", "Database connection not initialized", nil)
 			return
 		}
 
@@ -33,7 +33,7 @@ func DBHealthCheck(db *database.Database) gin.HandlerFunc {
 		err := db.Ping(ctx)
 		if err != nil {
 			log.Error().Err(err).Msg("Database health check failed")
-			middleware.RespondWithError(c, http.StatusServiceUnavailable, "Database connection failed", err.Error())
+			middleware.RespondWithError(c, http.StatusServiceUnavailable, "DB_UNAVAILABLE", "Database connection failed", err.Error())
 			return
 		}
 
