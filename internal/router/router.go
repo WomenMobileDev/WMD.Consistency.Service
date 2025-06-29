@@ -41,7 +41,7 @@ func SetupRouter(db *database.Database) *gin.Engine {
 
 	// Create services
 	authService := service.NewAuthService(userRepo, cfg)
-	userService := service.NewUserService(userRepo)
+	userService := service.NewUserService(userRepo, habitRepo, streakRepo, checkInRepo, achievementRepo)
 	habitService := service.NewHabitService(habitRepo, streakRepo)
 	streakService := service.NewStreakService(habitRepo, streakRepo, checkInRepo)
 	checkInService := service.NewCheckInService(habitRepo, streakRepo, checkInRepo, achievementRepo)
