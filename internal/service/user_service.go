@@ -405,7 +405,7 @@ func (s *UserService) calculateAverageConsistency(dataPoints []models.Consistenc
 	return sum / float64(len(dataPoints))
 }
 
-func (s *UserService) predictNextMilestone(ctx context.Context, habits []models.Habit, achievements []models.Achievement) *models.AchievementResponse {
+func (s *UserService) predictNextMilestone(ctx context.Context, habits []models.Habit, _ []models.Achievement) *models.AchievementResponse {
 	for _, habit := range habits {
 		streaks, err := s.streakRepo.FindByHabitID(ctx, habit.ID)
 		if err != nil {

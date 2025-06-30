@@ -156,7 +156,7 @@ func seedHabits(ctx context.Context, repo repository.HabitRepository, users []*m
 	return habits, nil
 }
 
-func seedComprehensiveData(ctx context.Context, habitRepo repository.HabitRepository, streakRepo repository.StreakRepository, checkInRepo repository.CheckInRepository, achievementRepo repository.AchievementRepository, habits []*models.Habit) error {
+func seedComprehensiveData(ctx context.Context, _ repository.HabitRepository, streakRepo repository.StreakRepository, checkInRepo repository.CheckInRepository, achievementRepo repository.AchievementRepository, habits []*models.Habit) error {
 	now := time.Now().UTC()
 
 	patterns := map[string][]float64{
