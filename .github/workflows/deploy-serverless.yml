@@ -158,7 +158,7 @@ jobs:
         run: |
           echo "Creating serverless.yml configuration..."
           cat > serverless.yml << 'EOF'
-          service: consistency-service-prod
+          service: consistency-api-prod
 
           provider:
             name: aws
