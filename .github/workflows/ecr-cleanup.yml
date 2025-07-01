@@ -1,0 +1,196 @@
+name: ECR Image Cleanup
+
+on:
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+    inputs:
+      keep_count:
+        description: "Number of images to keep per environment"
+        required: false
+        default: "5"
+        type: string
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: consistency-service
+
+jobs:
+  cleanup-ecr:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Set keep count
+        run: |
+          KEEP_COUNT="${{ github.event.inputs.keep_count || '5' }}"
+          echo "KEEP_COUNT=$KEEP_COUNT" >> $GITHUB_ENV
+          echo "Will keep $KEEP_COUNT most recent images per environment"
+
+      - name: Get all ECR images
+        id: get-images
+        run: |
+          echo "Fetching all images from ECR repository: $ECR_REPOSITORY"
+
+          # Get all images with their details
+          aws ecr describe-images \
+            --repository-name $ECR_REPOSITORY \
+            --query 'imageDetails[].[imageDigest,imagePushedAt,imageTags[0]]' \
+            --output text > all_images.txt
+
+          echo "Total images found: $(wc -l < all_images.txt)"
+          cat all_images.txt
+
+      - name: Identify staging and production images
+        run: |
+          echo "Identifying staging and production images..."
+
+          # Get current task definitions to find which images are in use
+          STAGING_TASK_DEF=$(aws ecs describe-services \
+            --cluster consistency-cluster \
+            --services consistency-staging \
+            --query 'services[0].taskDefinition' \
+            --output text)
+
+          PROD_TASK_DEF=$(aws ecs describe-services \
+            --cluster consistency-cluster \
+            --services consistency-prod \
+            --query 'services[0].taskDefinition' \
+            --output text)
+
+          echo "Staging task definition: $STAGING_TASK_DEF"
+          echo "Production task definition: $PROD_TASK_DEF"
+
+          # Get the images currently in use
+          if [ "$STAGING_TASK_DEF" != "None" ] && [ "$STAGING_TASK_DEF" != "null" ]; then
+            STAGING_IMAGE=$(aws ecs describe-task-definition \
+              --task-definition $STAGING_TASK_DEF \
+              --query 'taskDefinition.containerDefinitions[0].image' \
+              --output text)
+            echo "Current staging image: $STAGING_IMAGE"
+            echo "STAGING_IMAGE=$STAGING_IMAGE" >> $GITHUB_ENV
+          fi
+
+          if [ "$PROD_TASK_DEF" != "None" ] && [ "$PROD_TASK_DEF" != "null" ]; then
+            PROD_IMAGE=$(aws ecs describe-task-definition \
+              --task-definition $PROD_TASK_DEF \
+              --query 'taskDefinition.containerDefinitions[0].image' \
+              --output text)
+            echo "Current production image: $PROD_IMAGE"
+            echo "PROD_IMAGE=$PROD_IMAGE" >> $GITHUB_ENV
+          fi
+
+      - name: Clean up old images
+        run: |
+          echo "Starting cleanup process..."
+          echo "Keeping $KEEP_COUNT most recent images"
+
+          # Get images sorted by push date (oldest first for deletion)
+          # We'll keep the most recent images and delete the older ones
+          IMAGES_TO_DELETE=$(aws ecr describe-images \
+            --repository-name $ECR_REPOSITORY \
+            --query "sort_by(imageDetails,&imagePushedAt)[:-$KEEP_COUNT].[imageDigest]" \
+            --output text)
+
+          if [ -z "$IMAGES_TO_DELETE" ] || [ "$IMAGES_TO_DELETE" = "None" ]; then
+            echo "No old images to delete. All images are within the keep limit."
+            exit 0
+          fi
+
+          echo "Images to potentially delete:"
+          echo "$IMAGES_TO_DELETE"
+
+          # Get digests of currently used images to protect them
+          PROTECTED_DIGESTS=""
+
+          if [ ! -z "$STAGING_IMAGE" ]; then
+            STAGING_DIGEST=$(aws ecr describe-images \
+              --repository-name $ECR_REPOSITORY \
+              --image-ids imageTag=$(echo $STAGING_IMAGE | cut -d: -f2) \
+              --query 'imageDetails[0].imageDigest' \
+              --output text 2>/dev/null || echo "")
+            if [ ! -z "$STAGING_DIGEST" ] && [ "$STAGING_DIGEST" != "None" ]; then
+              PROTECTED_DIGESTS="$PROTECTED_DIGESTS $STAGING_DIGEST"
+              echo "Protected staging image digest: $STAGING_DIGEST"
+            fi
+          fi
+
+          if [ ! -z "$PROD_IMAGE" ]; then
+            PROD_DIGEST=$(aws ecr describe-images \
+              --repository-name $ECR_REPOSITORY \
+              --image-ids imageTag=$(echo $PROD_IMAGE | cut -d: -f2) \
+              --query 'imageDetails[0].imageDigest' \
+              --output text 2>/dev/null || echo "")
+            if [ ! -z "$PROD_DIGEST" ] && [ "$PROD_DIGEST" != "None" ]; then
+              PROTECTED_DIGESTS="$PROTECTED_DIGESTS $PROD_DIGEST"
+              echo "Protected production image digest: $PROD_DIGEST"
+            fi
+          fi
+
+          # Delete images that are not protected
+          DELETED_COUNT=0
+          SKIPPED_COUNT=0
+
+          for digest in $IMAGES_TO_DELETE; do
+            if echo "$PROTECTED_DIGESTS" | grep -q "$digest"; then
+              echo "⚠️  Skipping deletion of $digest (currently in use)"
+              SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
+            else
+              echo "🗑️  Deleting image with digest: $digest"
+              if aws ecr batch-delete-image \
+                --repository-name $ECR_REPOSITORY \
+                --image-ids imageDigest=$digest >/dev/null 2>&1; then
+                echo "✅ Successfully deleted image: $digest"
+                DELETED_COUNT=$((DELETED_COUNT + 1))
+              else
+                echo "❌ Failed to delete image: $digest"
+              fi
+            fi
+          done
+
+          echo ""
+          echo "🧹 Cleanup Summary:"
+          echo "  - Images deleted: $DELETED_COUNT"
+          echo "  - Images skipped (in use): $SKIPPED_COUNT"
+          echo "  - Images kept (recent): $KEEP_COUNT"
+
+          # Get final count
+          FINAL_COUNT=$(aws ecr describe-images \
+            --repository-name $ECR_REPOSITORY \
+            --query 'length(imageDetails)' \
+            --output text)
+          echo "  - Total images remaining: $FINAL_COUNT"
+
+      - name: Generate cleanup report
+        run: |
+          echo "📊 ECR Cleanup Report - $(date)" >> cleanup_report.txt
+          echo "Repository: $ECR_REPOSITORY" >> cleanup_report.txt
+          echo "Keep count: $KEEP_COUNT" >> cleanup_report.txt
+          echo "" >> cleanup_report.txt
+
+          echo "📋 Current images:" >> cleanup_report.txt
+          aws ecr describe-images \
+            --repository-name $ECR_REPOSITORY \
+            --query 'sort_by(imageDetails,&imagePushedAt)[*].[imagePushedAt,imageTags[0],imageDigest]' \
+            --output table >> cleanup_report.txt
+
+          echo "Report generated:"
+          cat cleanup_report.txt
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "🚨 ECR cleanup job failed!"
+          echo "Please check the logs and ensure:"
+          echo "1. AWS credentials have ECR permissions"
+          echo "2. ECR repository exists: $ECR_REPOSITORY"
+          echo "3. ECS services are accessible"
