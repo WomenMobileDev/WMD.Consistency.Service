@@ -62,12 +62,20 @@ jobs:
 
       - name: Set environment variables
         run: |
-          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+          echo "Current branch: ${{ github.ref }}"
+          echo "Branch name: ${{ github.ref_name }}"
+
+          if [ "${{ github.ref_name }}" = "main" ]; then
             echo "ENVIRONMENT=production" >> $GITHUB_ENV
             echo "ECS_SERVICE=consistency-prod" >> $GITHUB_ENV
-          else
+            echo "Deploying to PRODUCTION"
+          elif [ "${{ github.ref_name }}" = "staging" ]; then
             echo "ENVIRONMENT=staging" >> $GITHUB_ENV
             echo "ECS_SERVICE=consistency-staging" >> $GITHUB_ENV
+            echo "Deploying to STAGING"
+          else
+            echo "Unknown branch: ${{ github.ref_name }}"
+            exit 1
           fi
 
       - name: Configure AWS credentials
