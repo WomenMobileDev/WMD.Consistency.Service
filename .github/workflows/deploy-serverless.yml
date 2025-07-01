@@ -111,38 +111,35 @@ jobs:
         run: |
           echo "Retrieving database credentials from AWS Secrets Manager..."
 
-          # List secrets to debug
-          echo "Available secrets:"
-          aws secretsmanager list-secrets --region ${{ env.AWS_REGION }} --query 'SecretList[?contains(Name, `consistency-db`)].Name' --output text
+          # Get DB user - using the simple name we created
+          echo "Getting database user..."
+          DB_USER=$(aws secretsmanager get-secret-value \
+            --secret-id "consistency-db-user" \
+            --query SecretString \
+            --output text \
+            --region ${{ env.AWS_REGION }})
 
-          # Try different secret name patterns
-          SECRET_PATTERNS=("consistency-db-user-${{ env.SECRET_SUFFIX }}" "consistency-db-user" "consistency-prod-db-user")
-          DB_USER=""
-
-          for pattern in "${SECRET_PATTERNS[@]}"; do
-            echo "Trying secret pattern: $pattern"
-            if DB_USER=$(aws secretsmanager get-secret-value --secret-id "$pattern" --query SecretString --output text --region ${{ env.AWS_REGION }} 2>/dev/null); then
-              echo "✅ Found DB user secret: $pattern"
-              break
-            fi
-          done
-
-          SECRET_PATTERNS=("consistency-db-password-${{ env.SECRET_SUFFIX }}" "consistency-db-password" "consistency-prod-db-password")
-          DB_PASSWORD=""
-
-          for pattern in "${SECRET_PATTERNS[@]}"; do
-            echo "Trying secret pattern: $pattern"
-            if DB_PASSWORD=$(aws secretsmanager get-secret-value --secret-id "$pattern" --query SecretString --output text --region ${{ env.AWS_REGION }} 2>/dev/null); then
-              echo "✅ Found DB password secret: $pattern"
-              break
-            fi
-          done
+          # Get DB password - using the simple name we created
+          echo "Getting database password..."
+          DB_PASSWORD=$(aws secretsmanager get-secret-value \
+            --secret-id "consistency-db-password" \
+            --query SecretString \
+            --output text \
+            --region ${{ env.AWS_REGION }})
 
           # Validate we got the secrets
           if [ -z "$DB_USER" ] || [ -z "$DB_PASSWORD" ]; then
             echo "❌ Failed to retrieve database credentials"
-            echo "Available consistency secrets:"
-            aws secretsmanager list-secrets --region ${{ env.AWS_REGION }} --query 'SecretList[?contains(Name, `consistency`)].{Name:Name,ARN:ARN}' --output table
+            echo "DB_USER length: ${#DB_USER}"
+            echo "DB_PASSWORD length: ${#DB_PASSWORD}"
+            exit 1
+          fi
+
+          # Check if password is still placeholder
+          if [ "$DB_PASSWORD" = "PLACEHOLDER_UPDATE_ME" ]; then
+            echo "❌ Database password is still set to placeholder!"
+            echo "Please update the secret 'consistency-db-password' with your actual database password:"
+            echo "aws secretsmanager update-secret --secret-id consistency-db-password --secret-string 'YOUR_ACTUAL_PASSWORD' --region us-east-1"
             exit 1
           fi
 
