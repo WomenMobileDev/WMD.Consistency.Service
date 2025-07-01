@@ -234,3 +234,11 @@ The application uses the following environment variables (defined in .env file):
 - `AUTH_TOKEN_ISSUER`: JWT token issuer name
 
 See `.env.example` for all available configuration options.
+
+## Deployment (Staging & Production)
+
+This project uses AWS ECS Fargate, RDS, and GitHub Actions for CI/CD. Two environments are supported: `staging` (branch: staging) and `production` (branch: main).
+
+- See [docs/aws-setup.md](docs/aws-setup.md) for AWS resource setup instructions.
+- On push to `main` or `staging`, GitHub Actions builds and deploys the app to the corresponding ECS service.
+- Environment variables and secrets are managed via ECS and AWS Secrets Manager.

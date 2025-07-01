@@ -54,8 +54,6 @@ func NewServer(cfg *config.Config) *Server {
 	return srv
 }
 
-
-
 func (s *Server) ListenAndServe() error {
 	return s.http.ListenAndServe()
 }

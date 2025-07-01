@@ -187,7 +187,6 @@ func seedComprehensiveData(ctx context.Context, _ repository.HabitRepository, st
 }
 
 func seedHabitData(ctx context.Context, streakRepo repository.StreakRepository, checkInRepo repository.CheckInRepository, achievementRepo repository.AchievementRepository, habit *models.Habit, consistencyPattern []float64, now time.Time) error {
-	rand.Seed(time.Now().UnixNano())
 
 	daysActive := int(now.Sub(habit.CreatedAt).Hours() / 24)
 	if daysActive > 30 {
