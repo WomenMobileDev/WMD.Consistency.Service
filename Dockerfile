@@ -22,7 +22,7 @@ RUN go mod download
 COPY . .
 
 # Build the application with version info
-RUN go build -ldflags="-s -w" -o main ./cmd/main.go
+RUN go build -ldflags="-s -w" -o main ./cmd/server/main.go
 
 # Final stage
 FROM alpine:latest
