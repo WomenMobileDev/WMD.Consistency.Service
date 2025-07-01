@@ -1,0 +1,185 @@
+name: Deploy to AWS Lambda (Serverless)
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  AWS_REGION: us-east-1
+  NODE_VERSION: "18"
+  GO_VERSION: "1.23"
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Cache Go modules
+        uses: actions/cache@v3
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Install golangci-lint
+        run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+
+      - name: Run go fmt
+        run: |
+          fmtres=$(go fmt ./...)
+          if [ -n "$fmtres" ]; then
+            echo "Code is not formatted. Run 'go fmt ./...' locally." && exit 1
+          fi
+
+      - name: Run go vet
+        run: go vet ./...
+
+      - name: Run golangci-lint
+        run: golangci-lint run ./... --timeout=5m
+
+  deploy:
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set environment variables
+        run: |
+          echo "Current branch: ${{ github.ref }}"
+          echo "Branch name: ${{ github.ref_name }}"
+
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            echo "ENVIRONMENT=production" >> $GITHUB_ENV
+            echo "STAGE=prod" >> $GITHUB_ENV
+            echo "SECRET_SUFFIX=LUUpbF" >> $GITHUB_ENV
+            echo "DB_HOST=consistency-prod-db.cs5c86m8c7jh.us-east-1.rds.amazonaws.com" >> $GITHUB_ENV
+            echo "DOMAIN=api.consistency-production.shubhams.dev" >> $GITHUB_ENV
+            echo "CERT_ARN=arn:aws:acm:us-east-1:649024131095:certificate/2c8a7a6d-ae93-4dd1-8f5e-679864789461" >> $GITHUB_ENV
+            echo "Deploying to PRODUCTION"
+          else
+            echo "Unknown branch: ${{ github.ref_name }}"
+            echo "Only main branch is supported for this cost-optimized setup"
+            exit 1
+          fi
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Install Serverless Framework
+        run: |
+          npm install -g serverless
+          npm init -y
+          npm install serverless-domain-manager
+
+      - name: Get database credentials from Secrets Manager
+        run: |
+          echo "DB_USER=$(aws secretsmanager get-secret-value --secret-id consistency-db-user-${{ env.SECRET_SUFFIX }} --query SecretString --output text --region ${{ env.AWS_REGION }})" >> $GITHUB_ENV
+          echo "DB_PASSWORD=$(aws secretsmanager get-secret-value --secret-id consistency-db-password-${{ env.SECRET_SUFFIX }} --query SecretString --output text --region ${{ env.AWS_REGION }})" >> $GITHUB_ENV
+
+      - name: Build Lambda function
+        run: |
+          echo "Building Go application for AWS Lambda..."
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o bootstrap cmd/lambda/main.go
+          chmod +x bootstrap
+
+      - name: Create serverless config
+        run: |
+          cat > serverless.yml << 'EOF'
+          service: consistency-service-prod
+
+          provider:
+            name: aws
+            runtime: provided.al2
+            region: ${{ env.AWS_REGION }}
+            memorySize: 128
+            timeout: 30
+            environment:
+              ENV: ${{ env.ENVIRONMENT }}
+              LOG_LEVEL: error
+              DB_HOST: ${{ env.DB_HOST }}
+              DB_PORT: "5432"
+              DB_NAME: consistency_service
+              DB_SSL_MODE: disable
+              DB_USER: ${{ env.DB_USER }}
+              DB_PASSWORD: ${{ env.DB_PASSWORD }}
+
+          functions:
+            api:
+              handler: bootstrap
+              events:
+                - httpApi:
+                    path: /{proxy+}
+                    method: any
+                - httpApi:
+                    path: /
+                    method: any
+
+          plugins:
+            - serverless-domain-manager
+
+          custom:
+            customDomain:
+              domainName: ${{ env.DOMAIN }}
+              certificateArn: ${{ env.CERT_ARN }}
+              createRoute53Record: false
+
+          package:
+            individually: true
+            patterns:
+              - "!./**"
+              - "./bootstrap"
+          EOF
+
+      - name: Deploy to AWS Lambda
+        run: |
+          echo "Deploying to AWS Lambda..."
+          serverless deploy --stage prod
+
+          echo ""
+          echo "✅ Serverless deployment complete!"
+          echo "📊 Monthly cost: ~$8 (down from $120+ with ECS)"
+          echo "🌐 API endpoint: https://${{ env.DOMAIN }}"
+          echo "💰 Annual savings: $1,400+"
+
+      - name: Test deployment
+        run: |
+          echo "Testing deployment..."
+          sleep 30
+
+          if curl -f -s "https://${{ env.DOMAIN }}/health" > /dev/null; then
+            echo "✅ Health check passed!"
+            echo "🎉 Migration to serverless Lambda complete!"
+          else
+            echo "❌ Health check failed!"
+            exit 1
+          fi

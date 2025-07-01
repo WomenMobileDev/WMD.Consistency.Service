@@ -1,10 +1,7 @@
-name: Deploy to AWS ECS
+name: Deploy to AWS ECS (DISABLED - Migrated to Lambda)
 
 on:
-  push:
-    branches:
-      - main
-      - staging
+  workflow_dispatch: # Manual trigger only - disabled automatic deployment
 
 env:
   AWS_REGION: us-east-1
