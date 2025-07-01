@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.24.3-alpine AS builder
+FROM golang:1.23-alpine AS builder
 
 # Set necessary environment variables
 ENV CGO_ENABLED=0 \
@@ -35,9 +35,8 @@ WORKDIR /app
 # Create a non-root user to run the application
 RUN adduser -D -g '' appuser
 
-# Copy binary and config from builder
+# Copy binary from builder
 COPY --from=builder /app/main .
-COPY --from=builder /app/.env.example .env
 
 # Set proper permissions
 RUN chown -R appuser:appuser /app
