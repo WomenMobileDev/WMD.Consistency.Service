@@ -16,7 +16,7 @@ type Config struct {
 
 	Database DatabaseConfig
 
-	JWT JWTConfig
+	JWT  JWTConfig
 	Auth AuthConfig
 
 	API APIConfig
@@ -49,7 +49,7 @@ type JWTConfig struct {
 }
 
 type AuthConfig struct {
-	JWTSecret            string
+	JWTSecret           string
 	JWTExpiryHours      int
 	PasswordResetExpiry time.Duration
 	TokenIssuer         string
@@ -91,7 +91,7 @@ func Load() *Config {
 			Expiry: getDurationEnv("JWT_EXPIRY", 24*time.Hour),
 		},
 		Auth: AuthConfig{
-			JWTSecret:            getEnv("AUTH_JWT_SECRET", "habit_tracking_secret_key"),
+			JWTSecret:           getEnv("AUTH_JWT_SECRET", "habit_tracking_secret_key"),
 			JWTExpiryHours:      getIntEnv("AUTH_JWT_EXPIRY_HOURS", 72),
 			PasswordResetExpiry: getDurationEnv("AUTH_PASSWORD_RESET_EXPIRY", 24*time.Hour),
 			TokenIssuer:         getEnv("AUTH_TOKEN_ISSUER", "habit-tracking-app"),

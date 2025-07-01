@@ -19,7 +19,7 @@ type Achievement struct {
 	CreatedAt       time.Time      `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt       time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
 	DeletedAt       gorm.DeletedAt `json:"-" gorm:"index"`
-	
+
 	// Relationships
 	User  User  `json:"-" gorm:"foreignKey:UserID"`
 	Habit Habit `json:"-" gorm:"foreignKey:HabitID"`
@@ -39,7 +39,7 @@ type AchievementResponse struct {
 	TargetDays      int            `json:"target_days"`
 	AchievedAt      time.Time      `json:"achieved_at"`
 	Metadata        datatypes.JSON `json:"metadata,omitempty"`
-	
+
 	// Optional related data
 	HabitName string `json:"habit_name,omitempty"`
 }
