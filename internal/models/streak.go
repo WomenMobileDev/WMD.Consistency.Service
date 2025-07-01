@@ -21,10 +21,10 @@ type HabitStreak struct {
 	CreatedAt         time.Time      `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt         time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
 	DeletedAt         gorm.DeletedAt `json:"-" gorm:"index"`
-	
+
 	// Relationships
-	Habit     Habit         `json:"-" gorm:"foreignKey:HabitID"`
-	CheckIns  []HabitCheckIn `json:"check_ins,omitempty" gorm:"foreignKey:StreakID"`
+	Habit    Habit          `json:"-" gorm:"foreignKey:HabitID"`
+	CheckIns []HabitCheckIn `json:"check_ins,omitempty" gorm:"foreignKey:StreakID"`
 }
 
 // TableName specifies the table name for the HabitStreak model
@@ -45,7 +45,7 @@ type HabitStreakResponse struct {
 	CompletedAt       *time.Time `json:"completed_at,omitempty"`
 	FailedAt          *time.Time `json:"failed_at,omitempty"`
 	CreatedAt         time.Time  `json:"created_at"`
-	
+
 	// Optional related data
 	CheckIns []HabitCheckInResponse `json:"check_ins,omitempty"`
 }
@@ -77,7 +77,7 @@ type HabitCheckIn struct {
 	CreatedAt   time.Time      `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt   time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
 	DeletedAt   gorm.DeletedAt `json:"-" gorm:"index"`
-	
+
 	// Relationships
 	Streak HabitStreak `json:"-" gorm:"foreignKey:StreakID"`
 }

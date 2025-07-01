@@ -1,0 +1,207 @@
+name: Deploy to AWS ECS
+
+on:
+  push:
+    branches:
+      - main
+      - staging
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: consistency-service
+  ECS_CLUSTER: consistency-cluster
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+
+      - name: Cache Go modules
+        uses: actions/cache@v3
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Install golangci-lint
+        run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+
+      - name: Run go fmt
+        run: |
+          fmtres=$(go fmt ./...)
+          if [ -n "$fmtres" ]; then
+            echo "Code is not formatted. Run 'go fmt ./...' locally." && exit 1
+          fi
+
+      - name: Run go vet
+        run: go vet ./...
+
+      - name: Run golangci-lint
+        run: golangci-lint run ./... --timeout=5m
+
+  build-and-deploy:
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set environment variables
+        run: |
+          echo "Current branch: ${{ github.ref }}"
+          echo "Branch name: ${{ github.ref_name }}"
+
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            echo "ENVIRONMENT=production" >> $GITHUB_ENV
+            echo "ECS_SERVICE=consistency-prod" >> $GITHUB_ENV
+            echo "Deploying to PRODUCTION"
+          elif [ "${{ github.ref_name }}" = "staging" ]; then
+            echo "ENVIRONMENT=staging" >> $GITHUB_ENV
+            echo "ECS_SERVICE=consistency-staging" >> $GITHUB_ENV
+            echo "Deploying to STAGING"
+          else
+            echo "Unknown branch: ${{ github.ref_name }}"
+            exit 1
+          fi
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push image to ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          # Build Docker image
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
+
+          # Push both tags
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+      - name: Set secret suffix
+        run: |
+          if [ "${{ env.ENVIRONMENT }}" = "staging" ]; then
+            echo "SECRET_SUFFIX=FSWzec" >> $GITHUB_ENV
+          else
+            echo "SECRET_SUFFIX=LUUpbF" >> $GITHUB_ENV
+          fi
+
+      - name: Create task definition
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+          ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+          EXECUTION_ROLE_ARN: ${{ secrets.ECS_EXECUTION_ROLE_ARN }}
+          TASK_ROLE_ARN: ${{ secrets.ECS_TASK_ROLE_ARN }}
+          SECRET_SUFFIX: ${{ env.SECRET_SUFFIX }}
+        run: |
+          cat > task-definition.json << EOF
+          {
+            "family": "consistency-service-task",
+            "networkMode": "awsvpc",
+            "requiresCompatibilities": ["FARGATE"],
+            "cpu": "256",
+            "memory": "512",
+            "executionRoleArn": "$EXECUTION_ROLE_ARN",
+            "taskRoleArn": "$TASK_ROLE_ARN",
+            "containerDefinitions": [
+              {
+                "name": "app",
+                "image": "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG",
+                "portMappings": [
+                  {
+                    "containerPort": 8080,
+                    "hostPort": 8080,
+                    "protocol": "tcp"
+                  }
+                ],
+                "environment": [
+                  { "name": "ENV", "value": "$ENVIRONMENT" },
+                  { "name": "LOG_LEVEL", "value": "info" },
+                  { "name": "LOG_PRETTY", "value": "false" },
+                  { "name": "DB_SSL_MODE", "value": "require" }
+                ],
+                "secrets": [
+                  {
+                    "name": "DB_HOST",
+                    "valueFrom": "arn:aws:secretsmanager:us-east-1:649024131095:secret:consistency/$ENVIRONMENT/db-$SECRET_SUFFIX:host::"
+                  },
+                  {
+                    "name": "DB_PORT",
+                    "valueFrom": "arn:aws:secretsmanager:us-east-1:649024131095:secret:consistency/$ENVIRONMENT/db-$SECRET_SUFFIX:port::"
+                  },
+                  {
+                    "name": "DB_NAME",
+                    "valueFrom": "arn:aws:secretsmanager:us-east-1:649024131095:secret:consistency/$ENVIRONMENT/db-$SECRET_SUFFIX:dbname::"
+                  },
+                  {
+                    "name": "DB_USER",
+                    "valueFrom": "arn:aws:secretsmanager:us-east-1:649024131095:secret:consistency/$ENVIRONMENT/db-$SECRET_SUFFIX:username::"
+                  },
+                  {
+                    "name": "DB_PASSWORD",
+                    "valueFrom": "arn:aws:secretsmanager:us-east-1:649024131095:secret:consistency/$ENVIRONMENT/db-$SECRET_SUFFIX:password::"
+                  }
+                ],
+                "logConfiguration": {
+                  "logDriver": "awslogs",
+                  "options": {
+                    "awslogs-group": "/ecs/consistency-service",
+                    "awslogs-region": "$AWS_REGION",
+                    "awslogs-stream-prefix": "ecs"
+                  }
+                },
+                "essential": true,
+                "healthCheck": {
+                  "command": ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"],
+                  "interval": 30,
+                  "timeout": 5,
+                  "retries": 3,
+                  "startPeriod": 60
+                }
+              }
+            ]
+          }
+          EOF
+
+      - name: Deploy to ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          service: ${{ env.ECS_SERVICE }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          wait-for-service-stability: true
+
+      - name: Deployment summary
+        run: |
+          echo "✅ Deployment completed successfully!"
+          echo "🚀 Environment: ${{ env.ENVIRONMENT }}"
+          echo "🏷️  Image: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}"
+          echo "🔗 ECS Service: ${{ env.ECS_SERVICE }}"
+          echo "🔗 ECS Cluster: ${{ env.ECS_CLUSTER }}"

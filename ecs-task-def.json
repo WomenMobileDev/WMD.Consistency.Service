@@ -1,0 +1,37 @@
+{
+  "family": "consistency-service-task",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "containerDefinitions": [
+    {
+      "name": "app",
+      "image": "<IMAGE_URI>",
+      "portMappings": [
+        { "containerPort": 8080, "hostPort": 8080 }
+      ],
+      "environment": [
+        { "name": "ENV", "value": "staging" },
+        { "name": "LOG_LEVEL", "value": "debug" },
+        { "name": "LOG_PRETTY", "value": "true" },
+        { "name": "DB_HOST", "value": "<RDS_ENDPOINT>" },
+        { "name": "DB_PORT", "value": "5432" },
+        { "name": "DB_NAME", "value": "consistency_service" },
+        { "name": "DB_SSL_MODE", "value": "disable" }
+      ],
+      "secrets": [
+        { "name": "DB_USER", "valueFrom": "arn:aws:secretsmanager:<REGION>:<ACCOUNT_ID>:secret:consistency-db-user" },
+        { "name": "DB_PASSWORD", "valueFrom": "arn:aws:secretsmanager:<REGION>:<ACCOUNT_ID>:secret:consistency-db-password" }
+      ],
+      "healthCheck": {
+        "command": ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 10
+      },
+      "essential": true
+    }
+  ]
+} 
