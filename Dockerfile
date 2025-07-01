@@ -1,11 +1,11 @@
 # Build stage
-FROM golang:1.22.2-alpine AS builder
+FROM golang:1.24.3-alpine AS builder
 
 # Set necessary environment variables
 ENV CGO_ENABLED=0 \
-    GOOS=linux \
-    GOARCH=amd64 \
-    GO111MODULE=on
+  GOOS=linux \
+  GOARCH=amd64 \
+  GO111MODULE=on
 
 WORKDIR /app
 
@@ -50,7 +50,7 @@ EXPOSE 8080
 
 # Set healthcheck
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1
 
 # Run the application
 CMD ["./main"]
