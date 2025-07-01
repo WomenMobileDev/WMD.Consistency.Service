@@ -119,6 +119,7 @@ jobs:
           ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
           EXECUTION_ROLE_ARN: ${{ secrets.ECS_EXECUTION_ROLE_ARN }}
           TASK_ROLE_ARN: ${{ secrets.ECS_TASK_ROLE_ARN }}
+          SECRET_SUFFIX: ${{ env.SECRET_SUFFIX }}
         run: |
           cat > task-definition.json << EOF
           {
