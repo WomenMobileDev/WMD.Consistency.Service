@@ -141,23 +141,23 @@ jobs:
                 "secrets": [
                   {
                     "name": "DB_HOST",
-                    "valueFrom": "arn:aws:secretsmanager:$AWS_REGION:$ACCOUNT_ID:secret:consistency/$ENVIRONMENT/db:host::"
+                    "valueFrom": "arn:aws:secretsmanager:$AWS_REGION:$ACCOUNT_ID:secret:consistency/$ENVIRONMENT/db:host"
                   },
                   {
                     "name": "DB_PORT",
-                    "valueFrom": "arn:aws:secretsmanager:$AWS_REGION:$ACCOUNT_ID:secret:consistency/$ENVIRONMENT/db:port::"
+                    "valueFrom": "arn:aws:secretsmanager:$AWS_REGION:$ACCOUNT_ID:secret:consistency/$ENVIRONMENT/db:port"
                   },
                   {
                     "name": "DB_NAME",
-                    "valueFrom": "arn:aws:secretsmanager:$AWS_REGION:$ACCOUNT_ID:secret:consistency/$ENVIRONMENT/db:dbname::"
+                    "valueFrom": "arn:aws:secretsmanager:$AWS_REGION:$ACCOUNT_ID:secret:consistency/$ENVIRONMENT/db:dbname"
                   },
                   {
                     "name": "DB_USER",
-                    "valueFrom": "arn:aws:secretsmanager:$AWS_REGION:$ACCOUNT_ID:secret:consistency/$ENVIRONMENT/db:username::"
+                    "valueFrom": "arn:aws:secretsmanager:$AWS_REGION:$ACCOUNT_ID:secret:consistency/$ENVIRONMENT/db:username"
                   },
                   {
                     "name": "DB_PASSWORD",
-                    "valueFrom": "arn:aws:secretsmanager:$AWS_REGION:$ACCOUNT_ID:secret:consistency/$ENVIRONMENT/db:password::"
+                    "valueFrom": "arn:aws:secretsmanager:$AWS_REGION:$ACCOUNT_ID:secret:consistency/$ENVIRONMENT/db:password"
                   }
                 ],
                 "logConfiguration": {
