@@ -9,6 +9,8 @@ on:
 jobs:
   lint:
     runs-on: ubuntu-latest
+    env:
+      GOTOOLCHAIN: local
     steps:
       - uses: actions/checkout@v3
       - name: Set up Go
@@ -35,6 +37,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       AWS_REGION: us-east-1
+      GOTOOLCHAIN: local
       ECR_REPOSITORY: consistency-service
       ECS_CLUSTER: consistency-cluster
       ECS_SERVICE: ${{ github.ref == 'refs/heads/main' && 'consistency-prod' || 'consistency-staging' }}
