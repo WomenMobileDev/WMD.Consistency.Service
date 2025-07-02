@@ -12,7 +12,9 @@ echo "  ECR Registry: $ECR_REGISTRY"
 echo "  Image Tag: $IMAGE_TAG"
 
 echo "🔐 Logging into ECR..."
-aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 649024131095.dkr.ecr.us-east-1.amazonaws.com
+# Extract registry URL from ECR_REGISTRY (remove repository name if present)
+REGISTRY_URL=$(echo $ECR_REGISTRY | cut -d'/' -f1)
+aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $REGISTRY_URL
 
 echo "🐳 Pulling latest Docker image from ECR..."
 echo "Attempting to pull: $ECR_REGISTRY:$IMAGE_TAG"
