@@ -157,8 +157,12 @@ jobs:
       - name: Create serverless config
         run: |
           echo "Creating serverless.yml configuration..."
-          cat > serverless.yml << 'EOF'
-          service: consistency-api-prod
+          TIMESTAMP=$(date +%s)
+          SERVICE_NAME="consistency-lambda-${TIMESTAMP}"
+          echo "Using service name: $SERVICE_NAME"
+
+          cat > serverless.yml << EOF
+          service: $SERVICE_NAME
 
           provider:
             name: aws
@@ -202,7 +206,7 @@ jobs:
               - "!./**"
               - "./bootstrap"
           EOF
-          echo "✅ Serverless configuration created"
+          echo "✅ Serverless configuration created with service name: $SERVICE_NAME"
 
       - name: Deploy to AWS Lambda
         run: |
