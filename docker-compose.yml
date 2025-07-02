@@ -1,8 +1,9 @@
+version: "3.8"
+
 services:
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    build: .
+    container_name: consistency-api
     ports:
       - "8080:8080"
     environment:
@@ -13,8 +14,14 @@ services:
       - DB_PORT=5432
       - DB_NAME=consistency_service
       - DB_USER=postgres
-      - DB_PASSWORD=postgres
+      - DB_PASSWORD=password
       - DB_SSL_MODE=disable
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    volumes:
+      - ./docs:/app/docs:ro # Mount docs for swagger
     healthcheck:
       test:
         [
@@ -26,31 +33,28 @@ services:
           "http://localhost:8080/health",
         ]
       interval: 30s
-      timeout: 3s
+      timeout: 10s
       retries: 3
-      start_period: 5s
-    restart: unless-stopped
-    depends_on:
-      - db
-    networks:
-      - consistency-network
+      start_period: 40s
 
   db:
     image: postgres:15-alpine
+    container_name: consistency-db
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=consistency_service
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    networks:
-      - consistency-network
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
 volumes:
   postgres_data:
-
-networks:
-  consistency-network:
-    driver: bridge

@@ -27,7 +27,7 @@ func NewDatabase(cfg *config.Config) (*Database, error) {
 		cfg.Database.Password,
 		cfg.Database.Name,
 		cfg.Database.SSLMode,
-		5, // 5 second connection timeout
+		10, // 10 second connection timeout
 	)
 
 	// Configure GORM logger
@@ -41,16 +41,16 @@ func NewDatabase(cfg *config.Config) (*Database, error) {
 		},
 	)
 
-	// Configure GORM with retry logic - reduced for Lambda
+	// Configure GORM with retry logic
 	var db *gorm.DB
 	var err error
 	var retryCount int
-	maxRetries := 2               // Reduced from 5 to 2 for Lambda
-	retryDelay := 1 * time.Second // Reduced from 2 seconds
+	maxRetries := 5               // Standard retry count
+	retryDelay := 2 * time.Second // Standard retry delay
 
 	for retryCount < maxRetries {
 		// Create a context with timeout for each connection attempt
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 
 		// Open GORM connection
 		db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{
@@ -66,10 +66,10 @@ func NewDatabase(cfg *config.Config) (*Database, error) {
 			if dbErr == nil {
 				err = sqlDB.PingContext(ctx)
 				if err == nil {
-					// Configure connection pool settings
-					sqlDB.SetMaxIdleConns(5)                   // Reduced for Lambda
-					sqlDB.SetMaxOpenConns(10)                  // Reduced for Lambda
-					sqlDB.SetConnMaxLifetime(30 * time.Minute) // Shorter for Lambda
+					// Configure connection pool settings for server deployment
+					sqlDB.SetMaxIdleConns(10)                  // Standard idle connections
+					sqlDB.SetMaxOpenConns(25)                  // Standard open connections
+					sqlDB.SetConnMaxLifetime(60 * time.Minute) // Standard connection lifetime
 					cancel()
 					break
 				}

@@ -1,12 +1,13 @@
-name: Deploy to AWS ECS (DISABLED - Migrated to Lambda)
+name: Deploy to AWS EC2
 
 on:
-  workflow_dispatch: # Manual trigger only - disabled automatic deployment
+  push:
+    branches: [main]
+  workflow_dispatch:
 
 env:
   AWS_REGION: us-east-1
   ECR_REPOSITORY: consistency-service
-  ECS_CLUSTER: consistency-cluster
 
 jobs:
   lint:
@@ -57,24 +58,6 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Set environment variables
-        run: |
-          echo "Current branch: ${{ github.ref }}"
-          echo "Branch name: ${{ github.ref_name }}"
-
-          if [ "${{ github.ref_name }}" = "main" ]; then
-            echo "ENVIRONMENT=production" >> $GITHUB_ENV
-            echo "ECS_SERVICE=consistency-prod" >> $GITHUB_ENV
-            echo "Deploying to PRODUCTION"
-          elif [ "${{ github.ref_name }}" = "staging" ]; then
-            echo "ENVIRONMENT=staging" >> $GITHUB_ENV
-            echo "ECS_SERVICE=consistency-staging" >> $GITHUB_ENV
-            echo "Deploying to STAGING"
-          else
-            echo "Unknown branch: ${{ github.ref_name }}"
-            exit 1
-          fi
-
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -101,104 +84,112 @@ jobs:
 
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
-      - name: Set secret suffix
-        run: |
-          if [ "${{ env.ENVIRONMENT }}" = "staging" ]; then
-            echo "SECRET_SUFFIX=FSWzec" >> $GITHUB_ENV
-          else
-            echo "SECRET_SUFFIX=LUUpbF" >> $GITHUB_ENV
-          fi
-
-      - name: Create task definition
+      - name: Create docker-compose.yml for EC2
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
-          ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
-          EXECUTION_ROLE_ARN: ${{ secrets.ECS_EXECUTION_ROLE_ARN }}
-          TASK_ROLE_ARN: ${{ secrets.ECS_TASK_ROLE_ARN }}
-          SECRET_SUFFIX: ${{ env.SECRET_SUFFIX }}
         run: |
-          cat > task-definition.json << EOF
-          {
-            "family": "consistency-service-task",
-            "networkMode": "awsvpc",
-            "requiresCompatibilities": ["FARGATE"],
-            "cpu": "256",
-            "memory": "512",
-            "executionRoleArn": "$EXECUTION_ROLE_ARN",
-            "taskRoleArn": "$TASK_ROLE_ARN",
-            "containerDefinitions": [
-              {
-                "name": "app",
-                "image": "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG",
-                "portMappings": [
-                  {
-                    "containerPort": 8080,
-                    "hostPort": 8080,
-                    "protocol": "tcp"
-                  }
-                ],
-                "environment": [
-                  { "name": "ENV", "value": "$ENVIRONMENT" },
-                  { "name": "LOG_LEVEL", "value": "info" },
-                  { "name": "LOG_PRETTY", "value": "false" },
-                  { "name": "DB_SSL_MODE", "value": "require" }
-                ],
-                "secrets": [
-                  {
-                    "name": "DB_HOST",
-                    "valueFrom": "arn:aws:secretsmanager:us-east-1:649024131095:secret:consistency/$ENVIRONMENT/db-$SECRET_SUFFIX:host::"
-                  },
-                  {
-                    "name": "DB_PORT",
-                    "valueFrom": "arn:aws:secretsmanager:us-east-1:649024131095:secret:consistency/$ENVIRONMENT/db-$SECRET_SUFFIX:port::"
-                  },
-                  {
-                    "name": "DB_NAME",
-                    "valueFrom": "arn:aws:secretsmanager:us-east-1:649024131095:secret:consistency/$ENVIRONMENT/db-$SECRET_SUFFIX:dbname::"
-                  },
-                  {
-                    "name": "DB_USER",
-                    "valueFrom": "arn:aws:secretsmanager:us-east-1:649024131095:secret:consistency/$ENVIRONMENT/db-$SECRET_SUFFIX:username::"
-                  },
-                  {
-                    "name": "DB_PASSWORD",
-                    "valueFrom": "arn:aws:secretsmanager:us-east-1:649024131095:secret:consistency/$ENVIRONMENT/db-$SECRET_SUFFIX:password::"
-                  }
-                ],
-                "logConfiguration": {
-                  "logDriver": "awslogs",
-                  "options": {
-                    "awslogs-group": "/ecs/consistency-service",
-                    "awslogs-region": "$AWS_REGION",
-                    "awslogs-stream-prefix": "ecs"
-                  }
-                },
-                "essential": true,
-                "healthCheck": {
-                  "command": ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"],
-                  "interval": 30,
-                  "timeout": 5,
-                  "retries": 3,
-                  "startPeriod": 60
-                }
-              }
-            ]
-          }
+          cat > docker-compose.production.yml << EOF
+          version: '3.8'
+
+          services:
+            app:
+              image: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+              container_name: consistency-api
+              ports:
+                - "80:8080"
+              environment:
+                - ENV=production
+                - LOG_LEVEL=info
+                - LOG_PRETTY=false
+                - DB_HOST=consistency-prod-db.cs5c86m8c7jh.us-east-1.rds.amazonaws.com
+                - DB_PORT=5432
+                - DB_NAME=consistency_service
+                - DB_USER=postgres
+                - DB_PASSWORD=consistency1july
+                - DB_SSL_MODE=require
+              restart: unless-stopped
+              healthcheck:
+                test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+                interval: 30s
+                timeout: 10s
+                retries: 3
+                start_period: 40s
           EOF
 
-      - name: Deploy to ECS
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
-        with:
-          task-definition: task-definition.json
-          service: ${{ env.ECS_SERVICE }}
-          cluster: ${{ env.ECS_CLUSTER }}
-          wait-for-service-stability: true
+      - name: Create deployment script
+        run: |
+          cat > deploy.sh << 'EOF'
+          #!/bin/bash
+          set -e
+
+          echo "🚀 Starting deployment..."
+
+          # Login to ECR
+          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $ECR_REGISTRY
+
+          # Pull latest image
+          docker-compose -f docker-compose.production.yml pull
+
+          # Stop and remove old containers
+          docker-compose -f docker-compose.production.yml down
+
+          # Start new containers
+          docker-compose -f docker-compose.production.yml up -d
+
+          # Check if deployment was successful
+          echo "⏳ Waiting for application to start..."
+          sleep 30
+
+          # Health check
+          if curl -f http://localhost/health > /dev/null 2>&1; then
+            echo "✅ Deployment successful! Application is healthy."
+          else
+            echo "❌ Deployment failed! Application is not responding."
+            docker-compose -f docker-compose.production.yml logs
+            exit 1
+          fi
+
+          # Cleanup old images
+          docker image prune -f
+
+          echo "🎉 Deployment completed successfully!"
+          EOF
+
+          chmod +x deploy.sh
+
+      - name: Deploy to EC2
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          HOST: ${{ secrets.EC2_HOST }}
+          USER: ${{ secrets.EC2_USER }}
+        run: |
+          # Create SSH key file
+          echo "$PRIVATE_KEY" > private_key.pem
+          chmod 600 private_key.pem
+
+          # Copy files to EC2
+          scp -i private_key.pem -o StrictHostKeyChecking=no docker-compose.production.yml $USER@$HOST:/home/$USER/
+          scp -i private_key.pem -o StrictHostKeyChecking=no deploy.sh $USER@$HOST:/home/$USER/
+
+          # Execute deployment on EC2
+          ssh -i private_key.pem -o StrictHostKeyChecking=no $USER@$HOST "
+            export ECR_REGISTRY=$ECR_REGISTRY
+            cd /home/$USER
+            ./deploy.sh
+          "
+
+          # Cleanup
+          rm -f private_key.pem
 
       - name: Deployment summary
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
         run: |
           echo "✅ Deployment completed successfully!"
-          echo "🚀 Environment: ${{ env.ENVIRONMENT }}"
-          echo "🏷️  Image: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}"
-          echo "🔗 ECS Service: ${{ env.ECS_SERVICE }}"
-          echo "🔗 ECS Cluster: ${{ env.ECS_CLUSTER }}"
+          echo "🚀 Environment: production"
+          echo "🏷️  Image: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          echo "🔗 EC2 Host: ${{ secrets.EC2_HOST }}"
+          echo "🌐 Application should be available at: http://${{ secrets.EC2_HOST }}"

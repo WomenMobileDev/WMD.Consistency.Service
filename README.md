@@ -1,24 +1,82 @@
-# WMD.Consistency.Service
+# Consistency API
 
-A habit tracking backend service built with Go and Gin framework. This service helps users track their habits and maintain consistency streaks.
+A RESTful API service for tracking habits, streaks, and achievements built with Go, Gin, and PostgreSQL.
 
-## Features
-- User authentication with JWT tokens
-- Create and manage multiple habits
-- Set habit tracking goals with customizable durations
-- Daily check-ins to mark habit completion
-- Streak reset on missed check-ins
-- Achievement tracking for completed streaks
-- RESTful API endpoints
+## 🚀 Features
 
-## Requirements
-- Go 1.22.2 or higher
-- Docker and Docker Compose (for containerized deployment)
-- PostgreSQL (for database, included in Docker Compose)
+- **User Management**: Registration, authentication, and profile management
+- **Habit Tracking**: Create, update, and delete habits
+- **Streak Management**: Track consecutive habit completions
+- **Check-ins**: Log habit completions with timestamps
+- **Achievements**: Earn badges and rewards for milestones
+- **RESTful API**: Clean, well-documented API endpoints
+- **Health Checks**: Built-in health monitoring endpoints
 
-## Setup
+## 🏗️ Architecture
 
-### Local Development
+- **Backend**: Go 1.23 with Gin web framework
+- **Database**: PostgreSQL with GORM ORM
+- **Authentication**: JWT tokens
+- **Logging**: Structured logging with zerolog
+- **Deployment**: Docker containers on AWS EC2
+- **CI/CD**: GitHub Actions for automated deployment
+
+## 💰 Cost-Effective Deployment
+
+**Monthly Costs (~$8-12/month):**
+- EC2 t3.micro (free tier): $0-8/month
+- RDS db.t4g.micro: $8/month
+- Data transfer: ~$1/month
+- **Total: $8-12/month** (92% cost reduction from previous ECS setup)
+
+## 🛠️ Requirements
+
+- Go 1.23+
+- Docker & Docker Compose
+- PostgreSQL (or use Docker)
+
+## 🚀 Deployment
+
+### AWS EC2 Deployment (Recommended)
+
+See [EC2_DEPLOYMENT.md](EC2_DEPLOYMENT.md) for detailed deployment instructions.
+
+**Automatic Deployment:**
+- Push to `main` branch triggers GitHub Actions
+- Builds Docker image and pushes to ECR
+- Deploys to EC2 instance automatically
+
+**Required GitHub Secrets:**
+- `EC2_SSH_PRIVATE_KEY`: EC2 private key
+- `EC2_HOST`: EC2 public IP or domain
+- `EC2_USER`: EC2 username (usually `ec2-user`)
+- `AWS_ACCESS_KEY_ID`: AWS access key
+- `AWS_SECRET_ACCESS_KEY`: AWS secret key
+
+## 🛠️ Local Development
+
+### Quick Start
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/WomenMobileDev/WMD.Consistency.Service.git
+   cd WMD.Consistency.Service
+   ```
+
+2. **Run with Docker Compose**
+   ```bash
+   docker-compose up -d
+   ```
+
+3. **Access the API**
+   ```bash
+   curl http://localhost:8080/health
+   ```
+
+4. **View API Documentation**
+   Open http://localhost:8080/swagger in your browser
+
+### Manual Setup
 
 1. Clone the repository:
 ```bash

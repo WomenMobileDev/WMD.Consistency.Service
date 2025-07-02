@@ -29,21 +29,17 @@ func SetupRouter(db *database.Database) *gin.Engine {
 		})
 	})
 
-	// Root health check endpoints - these work regardless of database status
+	// Root health check endpoints
 	r.GET("/health", handlers.HealthCheck)
 	r.GET("/db-health", handlers.DBHealthCheck(db))
 
 	// Root welcome page
 	r.GET("/", func(c *gin.Context) {
-		status := "running"
-		if db == nil {
-			status = "running (no database connection)"
-		}
 		middleware.RespondWithOK(c, gin.H{
 			"name":          "Consistency API",
 			"description":   "A RESTful API for tracking habits, streaks, and achievements",
 			"version":       "1.0.0",
-			"status":        status,
+			"status":        "running",
 			"documentation": "/swagger",
 			"endpoints": map[string]string{
 				"health":    "/health",
@@ -105,91 +101,58 @@ func SetupRouter(db *database.Database) *gin.Engine {
 		c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(swaggerHTML))
 	})
 
-	// API v1 routes - always available with appropriate responses
+	// Load configuration
+	cfg := config.Load()
+
+	// Create repositories
+	userRepo := repository.NewUserRepository(db.DB)
+	habitRepo := repository.NewHabitRepository(db.DB)
+	streakRepo := repository.NewStreakRepository(db.DB)
+	checkInRepo := repository.NewCheckInRepository(db.DB)
+	achievementRepo := repository.NewAchievementRepository(db.DB)
+
+	// Create services
+	authService := service.NewAuthService(userRepo, cfg)
+	userService := service.NewUserService(userRepo, habitRepo, streakRepo, checkInRepo, achievementRepo)
+	habitService := service.NewHabitService(habitRepo, streakRepo)
+	streakService := service.NewStreakService(habitRepo, streakRepo, checkInRepo)
+	checkInService := service.NewCheckInService(habitRepo, streakRepo, checkInRepo, achievementRepo)
+	achievementService := service.NewAchievementService(achievementRepo, habitRepo)
+
+	// Create handlers
+	authHandler := handlers.NewAuthHandler(authService)
+	userHandler := handlers.NewUserHandler(userService)
+	habitHandler := handlers.NewHabitHandler(habitService)
+	streakHandler := handlers.NewStreakHandler(streakService)
+	checkInHandler := handlers.NewCheckInHandler(checkInService)
+	achievementHandler := handlers.NewAchievementHandler(achievementService)
+
+	// API v1 routes
 	v1 := r.Group("/api/v1")
 	{
 		// API v1 welcome page
 		v1.GET("/", func(c *gin.Context) {
-			status := "running"
-			endpoints := map[string]string{
-				"health":    "/api/v1/health",
-				"db_health": "/api/v1/db-health",
-			}
-
-			if db != nil {
-				status = "running"
-				endpoints["auth"] = "/api/v1/auth"
-				endpoints["profile"] = "/api/v1/profile"
-				endpoints["habits"] = "/api/v1/habits"
-				endpoints["achievements"] = "/api/v1/achievements"
-			} else {
-				status = "running (no database connection)"
-			}
-
 			middleware.RespondWithOK(c, gin.H{
 				"name":        "Consistency API",
 				"description": "A RESTful API for tracking habits, streaks, and achievements",
 				"version":     "1.0.0",
-				"status":      status,
-				"endpoints":   endpoints,
+				"status":      "running",
+				"endpoints": map[string]string{
+					"health":       "/api/v1/health",
+					"db_health":    "/api/v1/db-health",
+					"auth":         "/api/v1/auth",
+					"profile":      "/api/v1/profile",
+					"habits":       "/api/v1/habits",
+					"achievements": "/api/v1/achievements",
+				},
 			})
 		})
 
-		// Health check endpoints - always available
+		// Health check endpoints
 		v1.GET("/health", handlers.HealthCheck)
 		v1.GET("/db-health", handlers.DBHealthCheck(db))
 
-		// If no database connection, return early but with proper endpoints set up
-		if db == nil {
-			// Add placeholder routes that return proper "database unavailable" messages
-			auth := v1.Group("/auth")
-			{
-				auth.POST("/register", func(c *gin.Context) {
-					middleware.RespondWithError(c, http.StatusServiceUnavailable, "DB_UNAVAILABLE", "Database connection required for this endpoint", nil)
-				})
-				auth.POST("/login", func(c *gin.Context) {
-					middleware.RespondWithError(c, http.StatusServiceUnavailable, "DB_UNAVAILABLE", "Database connection required for this endpoint", nil)
-				})
-			}
-
-			v1.GET("/profile", func(c *gin.Context) {
-				middleware.RespondWithError(c, http.StatusServiceUnavailable, "DB_UNAVAILABLE", "Database connection required for this endpoint", nil)
-			})
-
-			v1.GET("/habits", func(c *gin.Context) {
-				middleware.RespondWithError(c, http.StatusServiceUnavailable, "DB_UNAVAILABLE", "Database connection required for this endpoint", nil)
-			})
-
-			return r
-		}
-
-		// Load configuration for full functionality
-		cfg := config.Load()
-
-		// Create repositories
-		userRepo := repository.NewUserRepository(db.DB)
-		habitRepo := repository.NewHabitRepository(db.DB)
-		streakRepo := repository.NewStreakRepository(db.DB)
-		checkInRepo := repository.NewCheckInRepository(db.DB)
-		achievementRepo := repository.NewAchievementRepository(db.DB)
-
-		// Create services
-		authService := service.NewAuthService(userRepo, cfg)
-		userService := service.NewUserService(userRepo, habitRepo, streakRepo, checkInRepo, achievementRepo)
-		habitService := service.NewHabitService(habitRepo, streakRepo)
-		streakService := service.NewStreakService(habitRepo, streakRepo, checkInRepo)
-		checkInService := service.NewCheckInService(habitRepo, streakRepo, checkInRepo, achievementRepo)
-		achievementService := service.NewAchievementService(achievementRepo, habitRepo)
-
-		// Create handlers
-		authHandler := handlers.NewAuthHandler(authService)
-		userHandler := handlers.NewUserHandler(userService)
-		habitHandler := handlers.NewHabitHandler(habitService)
-		streakHandler := handlers.NewStreakHandler(streakService)
-		checkInHandler := handlers.NewCheckInHandler(checkInService)
-		achievementHandler := handlers.NewAchievementHandler(achievementService)
-
-		// Auth routes
+		// Auth routes (public)
 		auth := v1.Group("/auth")
 		{
 			auth.POST("/register", authHandler.Register())
