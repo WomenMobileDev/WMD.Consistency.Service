@@ -104,6 +104,29 @@ func SetupRouter(db *database.Database) *gin.Engine {
 	// Load configuration
 	cfg := config.Load()
 
+	// If database is not available, only setup basic routes
+	if db == nil || db.DB == nil {
+		// Add a notice route that explains the service is running without database
+		r.GET("/status", func(c *gin.Context) {
+			middleware.RespondWithOK(c, gin.H{
+				"message": "Service is running but database is not available",
+				"status":  "degraded",
+				"health":  "/health",
+			})
+		})
+
+		// Setup basic API v1 status route
+		v1 := r.Group("/api/v1")
+		v1.GET("/status", func(c *gin.Context) {
+			middleware.RespondWithOK(c, gin.H{
+				"message": "API is running but database is not available",
+				"status":  "degraded",
+			})
+		})
+
+		return r
+	}
+
 	// Create repositories
 	userRepo := repository.NewUserRepository(db.DB)
 	habitRepo := repository.NewHabitRepository(db.DB)
