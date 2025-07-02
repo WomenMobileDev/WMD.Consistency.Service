@@ -22,8 +22,8 @@ if ! docker pull $ECR_REGISTRY:$IMAGE_TAG; then
   echo "⚠️  Failed to pull $IMAGE_TAG, trying 'latest' tag..."
   if ! docker pull $ECR_REGISTRY:latest; then
     echo "❌ Failed to pull both $IMAGE_TAG and latest tags"
-    echo "Available images in ECR:"
-    aws ecr list-images --repository-name consistency-service --query 'imageIds[*]' --output table || echo "Cannot list images"
+    echo "This might be the first deployment or build step failed"
+    echo "Check GitHub Actions build logs for Docker build/push errors"
     exit 1
   else
     echo "✅ Using latest tag instead"
