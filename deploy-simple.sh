@@ -15,7 +15,23 @@ echo "🔐 Logging into ECR..."
 aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 649024131095.dkr.ecr.us-east-1.amazonaws.com
 
 echo "🐳 Pulling latest Docker image from ECR..."
-docker pull $ECR_REGISTRY:$IMAGE_TAG
+echo "Attempting to pull: $ECR_REGISTRY:$IMAGE_TAG"
+
+# Try to pull the specific commit image first, fall back to latest
+if ! docker pull $ECR_REGISTRY:$IMAGE_TAG; then
+  echo "⚠️  Failed to pull $IMAGE_TAG, trying 'latest' tag..."
+  if ! docker pull $ECR_REGISTRY:latest; then
+    echo "❌ Failed to pull both $IMAGE_TAG and latest tags"
+    echo "Available images in ECR:"
+    aws ecr list-images --repository-name consistency-service --query 'imageIds[*]' --output table || echo "Cannot list images"
+    exit 1
+  else
+    echo "✅ Using latest tag instead"
+    IMAGE_TAG="latest"
+  fi
+else
+  echo "✅ Successfully pulled $IMAGE_TAG"
+fi
 
 echo "🛑 Stopping existing container (if any)..."
 docker stop consistency-api || true
