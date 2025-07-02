@@ -20,13 +20,14 @@ type Database struct {
 func NewDatabase(cfg *config.Config) (*Database, error) {
 	// Build DSN (Data Source Name)
 	dsn := fmt.Sprintf(
-		"host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
+		"host=%s port=%s user=%s password=%s dbname=%s sslmode=%s connect_timeout=%d",
 		cfg.Database.Host,
 		cfg.Database.Port,
 		cfg.Database.User,
 		cfg.Database.Password,
 		cfg.Database.Name,
 		cfg.Database.SSLMode,
+		5, // 5 second connection timeout
 	)
 
 	// Configure GORM logger
@@ -40,14 +41,17 @@ func NewDatabase(cfg *config.Config) (*Database, error) {
 		},
 	)
 
-	// Configure GORM with retry logic
+	// Configure GORM with retry logic - reduced for Lambda
 	var db *gorm.DB
 	var err error
 	var retryCount int
-	maxRetries := 5
-	retryDelay := 2 * time.Second
+	maxRetries := 2               // Reduced from 5 to 2 for Lambda
+	retryDelay := 1 * time.Second // Reduced from 2 seconds
 
 	for retryCount < maxRetries {
+		// Create a context with timeout for each connection attempt
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
 		// Open GORM connection
 		db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{
 			Logger: gormLogger,
@@ -57,20 +61,24 @@ func NewDatabase(cfg *config.Config) (*Database, error) {
 		})
 
 		if err == nil {
-			// Test connection
-			sqlDB, err := db.DB()
-			if err == nil {
-				err = sqlDB.Ping()
+			// Test connection with timeout
+			sqlDB, dbErr := db.DB()
+			if dbErr == nil {
+				err = sqlDB.PingContext(ctx)
 				if err == nil {
 					// Configure connection pool settings
-					sqlDB.SetMaxIdleConns(10)
-					sqlDB.SetMaxOpenConns(100)
-					sqlDB.SetConnMaxLifetime(time.Hour)
+					sqlDB.SetMaxIdleConns(5)                   // Reduced for Lambda
+					sqlDB.SetMaxOpenConns(10)                  // Reduced for Lambda
+					sqlDB.SetConnMaxLifetime(30 * time.Minute) // Shorter for Lambda
+					cancel()
 					break
 				}
+			} else {
+				err = dbErr
 			}
 		}
 
+		cancel()
 		retryCount++
 		log.Warn().
 			Err(err).
@@ -80,8 +88,6 @@ func NewDatabase(cfg *config.Config) (*Database, error) {
 
 		if retryCount < maxRetries {
 			time.Sleep(retryDelay)
-			// Exponential backoff
-			retryDelay *= 2
 		}
 	}
 

@@ -29,6 +29,62 @@ func SetupRouter(db *database.Database) *gin.Engine {
 		})
 	})
 
+	// Root health check endpoints
+	r.GET("/health", handlers.HealthCheck)
+	r.GET("/db-health", handlers.DBHealthCheck(db))
+
+	// Root welcome page
+	r.GET("/", func(c *gin.Context) {
+		status := "running"
+		if db == nil {
+			status = "running (no database connection)"
+		}
+		middleware.RespondWithOK(c, gin.H{
+			"name":          "Consistency API",
+			"description":   "A RESTful API for tracking habits, streaks, and achievements",
+			"version":       "1.0.0",
+			"status":        status,
+			"documentation": "/swagger",
+			"endpoints": map[string]string{
+				"health":    "/health",
+				"db_health": "/db-health",
+				"api_v1":    "/api/v1",
+			},
+			"repository": "https://github.com/WomenMobileDev/WMD.Consistency.Service",
+		})
+	})
+
+	// Setup Swagger documentation
+	// Serve swagger.yaml file
+	r.GET("/swagger.yaml", func(c *gin.Context) {
+		c.File("./docs/swagger.yaml")
+	})
+
+	// If no database connection, only serve basic endpoints
+	if db == nil {
+		// API v1 routes with limited functionality
+		v1 := r.Group("/api/v1")
+		{
+			// API v1 welcome page
+			v1.GET("/", func(c *gin.Context) {
+				middleware.RespondWithOK(c, gin.H{
+					"name":        "Consistency API",
+					"description": "A RESTful API for tracking habits, streaks, and achievements",
+					"version":     "1.0.0",
+					"status":      "running (no database connection)",
+					"message":     "Database connection unavailable. Some features may be limited.",
+					"endpoints": map[string]string{
+						"health": "/api/v1/health",
+					},
+				})
+			})
+			// Health check endpoints
+			v1.GET("/health", handlers.HealthCheck)
+			v1.GET("/db-health", handlers.DBHealthCheck(db))
+		}
+		return r
+	}
+
 	// Load configuration
 	cfg := config.Load()
 
@@ -54,33 +110,6 @@ func SetupRouter(db *database.Database) *gin.Engine {
 	streakHandler := handlers.NewStreakHandler(streakService)
 	checkInHandler := handlers.NewCheckInHandler(checkInService)
 	achievementHandler := handlers.NewAchievementHandler(achievementService)
-
-	// Root health check endpoints
-	r.GET("/health", handlers.HealthCheck)
-	r.GET("/db-health", handlers.DBHealthCheck(db))
-
-	// Root welcome page
-	r.GET("/", func(c *gin.Context) {
-		middleware.RespondWithOK(c, gin.H{
-			"name":          "Consistency API",
-			"description":   "A RESTful API for tracking habits, streaks, and achievements",
-			"version":       "1.0.0",
-			"status":        "running",
-			"documentation": "/swagger",
-			"endpoints": map[string]string{
-				"health":    "/health",
-				"db_health": "/db-health",
-				"api_v1":    "/api/v1",
-			},
-			"repository": "https://github.com/WomenMobileDev/WMD.Consistency.Service",
-		})
-	})
-
-	// Setup Swagger documentation
-	// Serve swagger.yaml file
-	r.GET("/swagger.yaml", func(c *gin.Context) {
-		c.File("./docs/swagger.yaml")
-	})
 
 	// Serve Swagger UI
 	r.GET("/swagger", func(c *gin.Context) {
