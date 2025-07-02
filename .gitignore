@@ -8,6 +8,12 @@
 # Test binary, built with `go test -c`
 *.test
 
+node_modules/
+
+bootstrap
+bootstrap.zip
+.serverless/
+
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 
