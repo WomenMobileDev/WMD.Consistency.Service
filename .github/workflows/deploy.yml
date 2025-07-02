@@ -5,10 +5,6 @@ on:
     branches: [main]
   workflow_dispatch:
 
-env:
-  AWS_REGION: us-east-1
-  ECR_REPOSITORY: consistency-service
-
 jobs:
   lint:
     runs-on: ubuntu-latest
@@ -48,115 +44,89 @@ jobs:
       - name: Run golangci-lint
         run: golangci-lint run ./... --timeout=5m
 
-  build-and-deploy:
-    # needs: lint
+  deploy:
+    needs: lint
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Build, tag, and push image to ECR
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.sha }}
-        run: |
-          # Build Docker image
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
-
-          # Push both tags
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
-
-          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
-
-      - name: Create docker-compose.yml for EC2
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.sha }}
-        run: |
-          cat > docker-compose.production.yml << EOF
-          version: '3.8'
-
-          services:
-            app:
-              image: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-              container_name: consistency-api
-              ports:
-                - "80:8080"
-              environment:
-                - ENV=production
-                - LOG_LEVEL=info
-                - LOG_PRETTY=false
-                - DB_HOST=consistency-prod-db.cs5c86m8c7jh.us-east-1.rds.amazonaws.com
-                - DB_PORT=5432
-                - DB_NAME=consistency_service
-                - DB_USER=postgres
-                - DB_PASSWORD=consistency1july
-                - DB_SSL_MODE=require
-              restart: unless-stopped
-              healthcheck:
-                test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
-                interval: 30s
-                timeout: 10s
-                retries: 3
-                start_period: 40s
-          EOF
-
-      - name: Copy deployment script
-        run: |
-          chmod +x deploy-simple.sh
-
       - name: Deploy to EC2
         env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
-          HOST: ${{ secrets.EC2_HOST }}
-          USER: ${{ secrets.EC2_USER }}
+          HOST: 54.243.82.154
+          USER: ubuntu
         run: |
           # Create SSH key file
           echo "$PRIVATE_KEY" > private_key.pem
           chmod 600 private_key.pem
 
+          # Create deployment script
+          cat > deploy-ec2.sh << 'EOF'
+          #!/bin/bash
+          set -e
+
+          echo "🚀 Starting deployment on EC2..."
+
+          # Navigate to app directory
+          cd /home/ubuntu/consistency || { echo "App directory not found"; exit 1; }
+
+          # Pull latest code
+          echo "📥 Pulling latest code..."
+          git pull origin main || { echo "Git pull failed"; exit 1; }
+
+          # Stop existing container
+          echo "🛑 Stopping existing container..."
+          sudo docker stop consistency-api || echo "No container to stop"
+          sudo docker rm consistency-api || echo "No container to remove"
+
+          # Build new image
+          echo "🔨 Building new Docker image..."
+          sudo docker build -t consistency-api:latest . || { echo "Docker build failed"; exit 1; }
+
+          # Start new container
+          echo "🚀 Starting new container..."
+          sudo docker run -d \
+            -p 8080:8080 \
+            -e DATABASE_URL="postgres://postgres:yourpassword@consistency-db.c9vfqd1qtcgd.us-east-1.rds.amazonaws.com:5432/consistency_db?sslmode=disable" \
+            -e PORT=8080 \
+            -e GIN_MODE=release \
+            --restart unless-stopped \
+            --name consistency-api \
+            consistency-api:latest || { echo "Container start failed"; exit 1; }
+
+          # Wait for health check
+          echo "⏳ Waiting for application to start..."
+          sleep 10
+
+          # Test the application
+          if curl -f http://localhost:8080/health > /dev/null 2>&1; then
+            echo "✅ Deployment successful! Application is healthy."
+          else
+            echo "❌ Deployment failed! Application is not responding."
+            exit 1
+          fi
+          EOF
+
           # Copy deployment script to EC2
-          scp -i private_key.pem -o StrictHostKeyChecking=no deploy-simple.sh $USER@$HOST:/home/$USER/deploy.sh
+          scp -i private_key.pem -o StrictHostKeyChecking=no deploy-ec2.sh $USER@$HOST:/home/$USER/deploy-ec2.sh
 
           # Execute deployment on EC2
           ssh -i private_key.pem -o StrictHostKeyChecking=no $USER@$HOST "
-            export ECR_REGISTRY=$ECR_REGISTRY/$ECR_REPOSITORY
-            export IMAGE_TAG=${{ github.sha }}
-            export AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
-            export AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
-            export AWS_DEFAULT_REGION=us-east-1
-            cd /home/$USER
-            chmod +x deploy.sh
-            ./deploy.sh
+            chmod +x /home/$USER/deploy-ec2.sh
+            /home/$USER/deploy-ec2.sh
           "
 
           # Cleanup
           rm -f private_key.pem
 
       - name: Deployment summary
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.sha }}
         run: |
           echo "✅ Deployment completed successfully!"
           echo "🚀 Environment: production"
-          echo "🏷️  Image: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
-          echo "🔗 EC2 Host: ${{ secrets.EC2_HOST }}"
-          echo "🌐 Application should be available at: http://${{ secrets.EC2_HOST }}"
+          echo "🌐 Application URL: https://54.243.82.154/health"
+          echo "📱 React Native API: http://54.243.82.154:8080"
+          echo "🔗 HTTPS URL: https://api.consistency-staging.shubhams.dev/health"
