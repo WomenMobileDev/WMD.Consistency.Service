@@ -23,12 +23,23 @@ func init() {
 	cfg := config.Load()
 	logger.Init(cfg)
 
+	log.Info().Msg("Lambda initialization starting...")
+	log.Info().
+		Str("db_host", cfg.Database.Host).
+		Str("db_port", cfg.Database.Port).
+		Str("db_name", cfg.Database.Name).
+		Str("db_user", cfg.Database.User).
+		Str("db_ssl_mode", cfg.Database.SSLMode).
+		Msg("Database configuration loaded")
+
 	// Initialize database with graceful handling
+	log.Info().Msg("Attempting database connection...")
 	db, err := database.NewDatabase(cfg)
 	if err != nil {
 		log.Warn().Err(err).Msg("Failed to connect to database, continuing without database connection")
 		db = nil // Set to nil to indicate no database connection
 	} else {
+		log.Info().Msg("Database connected successfully!")
 		// Run database migrations if connected
 		if err := db.RunMigrations(); err != nil {
 			log.Error().Err(err).Msg("Failed to run database migrations")

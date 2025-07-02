@@ -4,17 +4,17 @@ provider:
   name: aws
   runtime: provided.al2
   region: us-east-1
-  memorySize: 128  # Minimum memory for cost optimization
-  timeout: 30
+  memorySize: 512  # Increased from 128 for better performance
+  timeout: 60      # Increased from 30 to handle potential slow requests
   environment:
     ENV: production
     LOG_LEVEL: error
-    DB_HOST: ${env:DB_HOST}
+    DB_HOST: consistency-prod-db.cs5c86m8c7jh.us-east-1.rds.amazonaws.com
     DB_PORT: 5432
     DB_NAME: consistency_service
     DB_SSL_MODE: disable
-    DB_USER: ${env:DB_USER}
-    DB_PASSWORD: ${env:DB_PASSWORD}
+    DB_USER: postgres
+    DB_PASSWORD: consistency1july
 
 functions:
   api:
@@ -27,14 +27,15 @@ functions:
           path: /
           method: any
 
-plugins:
-  - serverless-domain-manager
-
-custom:
-  customDomain:
-    domainName: api.consistency-production.shubhams.dev
-    certificateArn: arn:aws:acm:us-east-1:649024131095:certificate/2c8a7a6d-ae93-4dd1-8f5e-679864789461
-    createRoute53Record: false  # Since you're using Squarespace DNS
+# Temporarily disable custom domain to fix deployment
+# plugins:
+#   - serverless-domain-manager
+# 
+# custom:
+#   customDomain:
+#     domainName: api.consistency-production.shubhams.dev
+#     certificateArn: arn:aws:acm:us-east-1:649024131095:certificate/2c8a7a6d-ae93-4dd1-8f5e-679864789461
+#     createRoute53Record: false  # Since you're using Squarespace DNS
 
 package:
   individually: true
