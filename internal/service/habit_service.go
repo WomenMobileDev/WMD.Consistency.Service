@@ -25,6 +25,8 @@ type CreateHabitRequest struct {
 	Description string `json:"description"`
 	Color       string `json:"color" binding:"omitempty,len=7"` // Hex color code
 	Icon        string `json:"icon"`
+	TargetDays  int    `json:"target_days" binding:"required"`
+	GoalUnit    string `json:"goal_unit" binding:"required,oneof=days weeks months"`
 }
 
 type UpdateHabitRequest struct {
@@ -63,6 +65,30 @@ func (s *HabitService) CreateHabit(ctx context.Context, userID uint, req CreateH
 	}
 
 	if err := s.habitRepo.Create(ctx, &habit); err != nil {
+		return nil, err
+	}
+
+	streakService := &StreakService{
+		habitRepo:  s.habitRepo,
+		streakRepo: s.streakRepo,
+	}
+	targetDays := req.TargetDays
+
+	switch req.GoalUnit {
+	case "days":
+		targetDays = req.TargetDays
+	case "weeks":
+		targetDays = req.TargetDays * 7
+	case "months":
+		targetDays = req.TargetDays * 30
+	}
+
+	streakReq := CreateStreakRequest{
+		TargetDays: targetDays,
+	}
+
+	_, err := streakService.CreateStreak(ctx, userID, habit.ID, streakReq)
+	if err != nil {
 		return nil, err
 	}
 

@@ -89,18 +89,18 @@ func seedUsers(ctx context.Context, repo repository.UserRepository) ([]*models.U
 	users := []*models.User{
 		{
 			Name:      "John Doe",
-			Email:     "john@example.com",
+			Email:     "john1@example.com",
 			CreatedAt: createdAt,
 		},
 		{
 			Name:      "Jane Smith",
-			Email:     "jane@example.com",
+			Email:     "jane1@example.com",
 			CreatedAt: createdAt,
 		},
 	}
 
 	for _, user := range users {
-		if err := user.SetPassword("password123"); err != nil {
+		if err := user.SetPassword("password@123"); err != nil {
 			return nil, fmt.Errorf("failed to set password: %w", err)
 		}
 	}
