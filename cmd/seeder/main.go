@@ -187,8 +187,6 @@ func seedComprehensiveData(ctx context.Context, _ repository.HabitRepository, st
 }
 
 func seedHabitData(ctx context.Context, streakRepo repository.StreakRepository, checkInRepo repository.CheckInRepository, achievementRepo repository.AchievementRepository, habit *models.Habit, consistencyPattern []float64, now time.Time) error {
-	rand.Seed(time.Now().UnixNano())
-
 	daysActive := int(now.Sub(habit.CreatedAt).Hours() / 24)
 	if daysActive > 30 {
 		daysActive = 30
@@ -201,6 +199,8 @@ func seedHabitData(ctx context.Context, streakRepo repository.StreakRepository, 
 
 	segmentLength := 5
 	patternIndex := 0
+
+	latestStreakStart := now.AddDate(0, 0, -rand.Intn(2)-5) // 5 or 6 days ago
 
 	for day := daysActive; day >= 0; day-- {
 		date := now.AddDate(0, 0, -day)
@@ -219,7 +219,6 @@ func seedHabitData(ctx context.Context, streakRepo repository.StreakRepository, 
 		}
 
 		consistency := consistencyPattern[patternIndex]
-
 		actualConsistency := consistency + (rand.Float64()-0.5)*0.3
 		if actualConsistency < 0 {
 			actualConsistency = 0
@@ -230,15 +229,21 @@ func seedHabitData(ctx context.Context, streakRepo repository.StreakRepository, 
 
 		shouldCheckIn := rand.Float64() < actualConsistency
 
+		// Only start the latest streak 5-6 days ago
 		if shouldCheckIn {
 			if currentStreakID == 0 {
 				targetDays := streakTargets[rand.Intn(len(streakTargets))]
+				streakStartDate := date
+				// If this is the latest streak, set its start date to latestStreakStart
+				if day <= 6 {
+					streakStartDate = latestStreakStart
+				}
 				streak := &models.HabitStreak{
 					HabitID:           habit.ID,
 					TargetDays:        targetDays,
 					CurrentStreak:     0,
 					MaxStreakAchieved: 0,
-					StartDate:         date,
+					StartDate:         streakStartDate,
 					Status:            "active",
 				}
 
@@ -249,9 +254,15 @@ func seedHabitData(ctx context.Context, streakRepo repository.StreakRepository, 
 				currentStreak = 0
 			}
 
+			checkInDate := date
+			// For the latest streak, check-ins should be within the last 5-6 days
+			if day <= 6 {
+				checkInDate = now.AddDate(0, 0, -(6 - day))
+			}
+
 			checkIn := &models.HabitCheckIn{
 				StreakID:    currentStreakID,
-				CheckInDate: date,
+				CheckInDate: checkInDate,
 				Notes:       generateCheckInNote(habit.Name, currentStreak+1),
 			}
 
@@ -267,21 +278,21 @@ func seedHabitData(ctx context.Context, streakRepo repository.StreakRepository, 
 			}
 
 			streak.CurrentStreak = currentStreak
-			streak.LastCheckInDate = &date
+			streak.LastCheckInDate = &checkInDate
 			if currentStreak > streak.MaxStreakAchieved {
 				streak.MaxStreakAchieved = currentStreak
 			}
 
 			if currentStreak >= streak.TargetDays {
 				streak.Status = "completed"
-				streak.CompletedAt = &date
+				streak.CompletedAt = &checkInDate
 
 				achievement := &models.Achievement{
 					UserID:          habit.UserID,
 					HabitID:         habit.ID,
 					AchievementType: "streak_completed",
 					TargetDays:      streak.TargetDays,
-					AchievedAt:      date,
+					AchievedAt:      checkInDate,
 					Metadata:        datatypes.JSON([]byte(fmt.Sprintf(`{"streak_id": %d, "habit_name": "%s"}`, streak.ID, habit.Name))),
 				}
 

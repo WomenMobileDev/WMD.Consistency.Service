@@ -29,6 +29,7 @@ type StreakRepository interface {
 	Create(ctx context.Context, streak *models.HabitStreak) error
 	FindByID(ctx context.Context, id uint) (*models.HabitStreak, error)
 	FindByHabitID(ctx context.Context, habitID uint) ([]models.HabitStreak, error)
+	FindByHabitIDs(ctx context.Context, habitIDs []uint) ([]models.HabitStreak, error)
 	FindActiveByHabitID(ctx context.Context, habitID uint) (*models.HabitStreak, error)
 	Update(ctx context.Context, streak *models.HabitStreak) error
 	Delete(ctx context.Context, id uint) error
@@ -39,6 +40,7 @@ type CheckInRepository interface {
 	Create(ctx context.Context, checkIn *models.HabitCheckIn) error
 	FindByID(ctx context.Context, id uint) (*models.HabitCheckIn, error)
 	FindByStreakID(ctx context.Context, streakID uint) ([]models.HabitCheckIn, error)
+	FindByStreakIDs(ctx context.Context, streakIDs []uint) ([]models.HabitCheckIn, error)
 	FindByDate(ctx context.Context, streakID uint, date string) (*models.HabitCheckIn, error)
 	FindLatestByStreakID(ctx context.Context, streakID uint) (*models.HabitCheckIn, error)
 	Delete(ctx context.Context, id uint) error

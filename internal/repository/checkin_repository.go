@@ -91,3 +91,17 @@ func (r *GormCheckInRepository) Delete(ctx context.Context, id uint) error {
 	}
 	return nil
 }
+
+// FindByStreakIDs finds all check-ins for multiple streak IDs
+func (r *GormCheckInRepository) FindByStreakIDs(ctx context.Context, streakIDs []uint) ([]models.HabitCheckIn, error) {
+	if len(streakIDs) == 0 {
+		return []models.HabitCheckIn{}, nil
+	}
+	var checkIns []models.HabitCheckIn
+	result := r.db.WithContext(ctx).Where("streak_id IN ?", streakIDs).Order("check_in_date DESC").Find(&checkIns)
+	if result.Error != nil {
+		log.Error().Err(result.Error).Interface("streakIDs", streakIDs).Msg("Failed to find check-ins by streak IDs")
+		return nil, result.Error
+	}
+	return checkIns, nil
+}

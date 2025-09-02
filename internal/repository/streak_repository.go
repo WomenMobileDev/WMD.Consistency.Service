@@ -87,3 +87,17 @@ func (r *GormStreakRepository) Delete(ctx context.Context, id uint) error {
 	}
 	return nil
 }
+
+// FindByHabitIDs finds all streaks for multiple habit IDs
+func (r *GormStreakRepository) FindByHabitIDs(ctx context.Context, habitIDs []uint) ([]models.HabitStreak, error) {
+	if len(habitIDs) == 0 {
+		return []models.HabitStreak{}, nil
+	}
+	var streaks []models.HabitStreak
+	result := r.db.WithContext(ctx).Where("habit_id IN ?", habitIDs).Order("created_at DESC").Find(&streaks)
+	if result.Error != nil {
+		log.Error().Err(result.Error).Interface("habitIDs", habitIDs).Msg("Failed to find streaks by habit IDs")
+		return nil, result.Error
+	}
+	return streaks, nil
+}
