@@ -55,7 +55,7 @@ func (h *Habit) ToResponse() HabitResponse {
 		Color:       h.Color,
 		Icon:        h.Icon,
 		IsActive:    h.IsActive,
-		Status:      "inactive", // Default to inactive, will be updated by service
+		Status:      "active",
 		CreatedAt:   h.CreatedAt,
 		UpdatedAt:   h.UpdatedAt,
 	}
@@ -64,17 +64,19 @@ func (h *Habit) ToResponse() HabitResponse {
 func (h *Habit) ToResponseWithStreak(currentStreak *HabitStreak) HabitResponse {
 	response := h.ToResponse()
 
-	if currentStreak != nil && currentStreak.Status == "active" && currentStreak.CurrentStreak > 0 {
+	if currentStreak == nil {
 		response.Status = "active"
-		streakResponse := currentStreak.ToResponse()
-		response.CurrentStreak = &streakResponse
+		return response
+	}
+
+	if currentStreak.Status == "active" {
+		response.Status = "active"
 	} else {
 		response.Status = "inactive"
-		if currentStreak != nil {
-			streakResponse := currentStreak.ToResponse()
-			response.CurrentStreak = &streakResponse
-		}
 	}
+
+	streakResponse := currentStreak.ToResponse()
+	response.CurrentStreak = &streakResponse
 
 	return response
 }
