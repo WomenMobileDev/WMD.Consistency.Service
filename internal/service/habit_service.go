@@ -68,12 +68,8 @@ func (s *HabitService) CreateHabit(ctx context.Context, userID uint, req CreateH
 		return nil, err
 	}
 
-	streakService := &StreakService{
-		habitRepo:  s.habitRepo,
-		streakRepo: s.streakRepo,
-	}
+	// Calculate target days based on goal unit
 	targetDays := req.TargetDays
-
 	switch req.GoalUnit {
 	case "days":
 		targetDays = req.TargetDays
@@ -83,16 +79,38 @@ func (s *HabitService) CreateHabit(ctx context.Context, userID uint, req CreateH
 		targetDays = req.TargetDays * 30
 	}
 
+	// Create streak service and start the streak
+	streakService := &StreakService{
+		habitRepo:  s.habitRepo,
+		streakRepo: s.streakRepo,
+	}
 	streakReq := CreateStreakRequest{
 		TargetDays: targetDays,
 	}
 
-	_, err := streakService.CreateStreak(ctx, userID, habit.ID, streakReq)
+	createdStreak, err := streakService.CreateStreak(ctx, userID, habit.ID, streakReq)
 	if err != nil {
 		return nil, err
 	}
 
-	response := habit.ToResponseWithStreak(nil)
+	// Convert streak response to streak model for the response
+	var currentStreak *models.HabitStreak
+	if createdStreak != nil {
+		currentStreak = &models.HabitStreak{
+			ID:                createdStreak.ID,
+			HabitID:           createdStreak.HabitID,
+			TargetDays:        createdStreak.TargetDays,
+			CurrentStreak:     createdStreak.CurrentStreak,
+			MaxStreakAchieved: createdStreak.MaxStreakAchieved,
+			StartDate:         createdStreak.StartDate,
+			Status:            createdStreak.Status,
+			LastCheckInDate:   createdStreak.LastCheckInDate,
+			CompletedAt:       createdStreak.CompletedAt,
+			FailedAt:          createdStreak.FailedAt,
+		}
+	}
+
+	response := habit.ToResponseWithStreak(currentStreak)
 	return &response, nil
 }
 
