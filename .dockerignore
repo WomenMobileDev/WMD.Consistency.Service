@@ -1,0 +1,58 @@
+# Build artifacts
+/tmp
+*.tmp
+*.log
+.DS_Store
+
+# Git
+.git/
+.gitignore
+README.md
+*.md
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Testing
+*_test.go
+/coverage
+/test
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+Jenkinsfile
+
+# Documentation
+/docs
+
+# Environment files (copy manually if needed)
+.env
+.env.local
+.env.*.local
+
+# Dependencies (will be downloaded in container)
+/vendor/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Temporary files
+/tmp/
+*.tmp
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+/logs/
