@@ -1,0 +1,52 @@
+services:
+  - type: web
+    name: consistency-service
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    region: oregon
+    envVars:
+      - key: ENV
+        value: production
+      - key: LOG_LEVEL
+        value: info
+      - key: LOG_PRETTY
+        value: "false"
+      - key: PORT
+        value: "8080"
+      - key: DB_SSL_MODE
+        value: require
+      # Add your database environment variables here:
+      # - key: DB_HOST
+      #   fromService:
+      #     type: pserv
+      #     name: consistency-db
+      #     property: host
+      # - key: DB_PORT
+      #   fromService:
+      #     type: pserv
+      #     name: consistency-db
+      #     property: port
+      # - key: DB_NAME
+      #   fromService:
+      #     type: pserv
+      #     name: consistency-db
+      #     property: database
+      # - key: DB_USER
+      #   fromService:
+      #     type: pserv
+      #     name: consistency-db
+      #     property: user
+      # - key: DB_PASSWORD
+      #   fromService:
+      #     type: pserv
+      #     name: consistency-db
+      #     property: password
+
+  # Uncomment if you want Render to manage your PostgreSQL database
+  # - type: pserv
+  #   name: consistency-db
+  #   env: postgresql
+  #   plan: starter
+  #   region: oregon
+  #   ipAllowList: []
